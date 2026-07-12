@@ -89,6 +89,30 @@ This is context-based delegation, not a silent model change inside the current
 main thread. The main thread keeps its selected model; the delegated agent uses
 its own configuration.
 
+## Sharing instructions with Claude Code
+
+If `AGENTS.md` is a symlink to `CLAUDE.md`, keep that file limited to rules
+that both tools should follow. Put Codex-specific model and delegation behavior
+in Codex-native files instead:
+
+```text
+AGENTS.md -> CLAUDE.md       # shared project conventions
+.codex/agents/*.toml         # project-specific agent models and roles
+.codex/skills/               # Codex-specific workflows
+~/.codex/AGENTS.md            # personal Codex preferences
+```
+
+Use separate real `AGENTS.md` and `CLAUDE.md` files when the top-level prose
+itself must differ. A shared source file can be used to generate their common
+sections. Do not rely on `AGENTS.override.md` or fallback filenames as a
+per-tool overlay: Codex checks the override first and includes at most one
+instruction file per directory.
+
+Codex discovers global and project instructions in order, then merges them from
+the repository root toward the current directory. Use nested `AGENTS.md` files
+for directory-specific rules, and `AGENTS.override.md` when a subtree should
+replace its normal instructions.
+
 ## Git and security policy
 
 Commit project behavior that the team should share:

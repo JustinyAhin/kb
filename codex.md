@@ -10,31 +10,35 @@ result. Delegate bounded work to specialized agents:
 
 | Agent | Model | Reasoning | Use for |
 | --- | --- | --- | --- |
-| `architect` | `gpt-5.6` (Sol) | `high` | Architecture, migrations, ambiguous planning, difficult tradeoffs |
+| `<project>_architect` | `gpt-5.6-sol` (Sol) | `high` | Architecture, migrations, ambiguous planning, difficult tradeoffs |
 | `scout` | `gpt-5.6-luna` | `low` or `medium` | File and symbol lookup, simple searches, shallow summaries |
 | `explorer` | `gpt-5.6-terra` | `low` or `medium` | Codebase mapping, large-file review, documentation research |
 | `implementer` | `gpt-5.6-terra` | `medium` | Normal feature work and focused fixes |
-| `reviewer` | `gpt-5.6` (Sol) | `high` | Security, correctness, regression, and final review |
+| `<project>_reviewer` | `gpt-5.6-sol` (Sol) | `high` | Security, correctness, regression, and final review |
 
 Use `gpt-5.6-luna` for cheap, repetitive, or high-volume scouting when it is
 available in the Codex client. Escalate to Terra when exploration requires
 tracing real execution paths or synthesizing behavior across files. Luna is
 not the default for risky edits.
 
-OpenAI's current Codex guidance says to start with `gpt-5.6` for demanding
+OpenAI's current Codex guidance says to start with `gpt-5.6-sol` for demanding
 agents and use `gpt-5.6-terra` for faster, lighter subagent work. Higher
 reasoning levels improve difficult work but increase latency and token usage.
+
+Use the exact model identifiers exposed by the Codex model picker. In
+ChatGPT-authenticated Codex sessions, `gpt-5.6-sol` is the supported Sol
+identifier; do not assume the API alias `gpt-5.6` works for delegated agents.
 
 ## Example custom agents
 
 Project-scoped agents belong in `.codex/agents/` and can be committed to Git.
 
-`.codex/agents/architect.toml`:
+`.codex/agents/<project>_architect.toml`:
 
 ```toml
-name = "architect"
+name = "<project>_architect"
 description = "Architecture and planning specialist for ambiguous, high-impact work."
-model = "gpt-5.6"
+model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 developer_instructions = """
@@ -91,11 +95,11 @@ most relevant checks, and report the files changed and validation performed.
 Put routing guidance in the repository's `AGENTS.md` or in a project skill:
 
 ```md
-For architecture, migrations, and ambiguous planning, delegate to `architect`.
+For architecture, migrations, and ambiguous planning, delegate to `<project>_architect`.
 For simple file/symbol lookup and shallow summaries, delegate to `scout`.
 For execution-path tracing and deeper API research, delegate to `explorer`.
 For bounded implementation after the plan is clear, delegate to `implementer`.
-Use `reviewer` for security-sensitive, cross-cutting, or final validation work.
+Use `<project>_reviewer` for security-sensitive, cross-cutting, or final validation work.
 Keep the main thread responsible for requirements, decisions, and synthesis.
 ```
 
@@ -153,7 +157,7 @@ reads the repository, runs commands, edits files, and delegates work.
 
 ## Practical defaults
 
-- Use `gpt-5.6` with `high` reasoning for architecture and final review.
+- Use `gpt-5.6-sol` with `high` reasoning for architecture and final review.
 - Use `gpt-5.6-luna` with `low` reasoning for cheap first-pass scouting.
 - Use `gpt-5.6-terra` with `medium` reasoning for everyday implementation.
 - Use Terra for exploration that requires code-flow understanding or synthesis.

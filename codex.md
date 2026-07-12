@@ -11,12 +11,15 @@ result. Delegate bounded work to specialized agents:
 | Agent | Model | Reasoning | Use for |
 | --- | --- | --- | --- |
 | `architect` | `gpt-5.6` (Sol) | `high` | Architecture, migrations, ambiguous planning, difficult tradeoffs |
+| `scout` | `gpt-5.6-luna` | `low` or `medium` | File and symbol lookup, simple searches, shallow summaries |
 | `explorer` | `gpt-5.6-terra` | `low` or `medium` | Codebase mapping, large-file review, documentation research |
 | `implementer` | `gpt-5.6-terra` | `medium` | Normal feature work and focused fixes |
 | `reviewer` | `gpt-5.6` (Sol) | `high` | Security, correctness, regression, and final review |
 
-Use `gpt-5.6-luna` only when it is available in the Codex client and the work
-is cheap, repetitive, or high-volume. It is not the default for risky edits.
+Use `gpt-5.6-luna` for cheap, repetitive, or high-volume scouting when it is
+available in the Codex client. Escalate to Terra when exploration requires
+tracing real execution paths or synthesizing behavior across files. Luna is
+not the default for risky edits.
 
 OpenAI's current Codex guidance says to start with `gpt-5.6` for demanding
 agents and use `gpt-5.6-terra` for faster, lighter subagent work. Higher
@@ -54,6 +57,21 @@ concise evidence for the parent agent. Do not modify files.
 """
 ```
 
+`.codex/agents/scout.toml`:
+
+```toml
+name = "scout"
+description = "Cheap first-pass agent for locating files, symbols, and obvious usages."
+model = "gpt-5.6-luna"
+model_reasoning_effort = "low"
+sandbox_mode = "read-only"
+developer_instructions = """
+Perform focused searches and return file paths, symbols, and concise findings.
+Do not infer architecture or modify files. Escalate complex code-flow questions
+to the explorer agent.
+"""
+```
+
 `.codex/agents/implementer.toml`:
 
 ```toml
@@ -74,7 +92,8 @@ Put routing guidance in the repository's `AGENTS.md` or in a project skill:
 
 ```md
 For architecture, migrations, and ambiguous planning, delegate to `architect`.
-For repository exploration and API research, delegate to `explorer`.
+For simple file/symbol lookup and shallow summaries, delegate to `scout`.
+For execution-path tracing and deeper API research, delegate to `explorer`.
 For bounded implementation after the plan is clear, delegate to `implementer`.
 Use `reviewer` for security-sensitive, cross-cutting, or final validation work.
 Keep the main thread responsible for requirements, decisions, and synthesis.
@@ -135,9 +154,10 @@ reads the repository, runs commands, edits files, and delegates work.
 ## Practical defaults
 
 - Use `gpt-5.6` with `high` reasoning for architecture and final review.
+- Use `gpt-5.6-luna` with `low` reasoning for cheap first-pass scouting.
 - Use `gpt-5.6-terra` with `medium` reasoning for everyday implementation.
+- Use Terra for exploration that requires code-flow understanding or synthesis.
 - Lower Terra to `low` for straightforward work where speed matters.
-- Use Luna for cheap, repetitive, bounded work only when it is available.
 - Prefer a plan before changes that touch several files.
 - Keep the main thread clean by returning summaries rather than raw exploration
   output from subagents.

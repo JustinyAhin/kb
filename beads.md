@@ -121,8 +121,9 @@ or an index/column error during a Beads schema migration.
    `bd dolt status` confirms whether the server is healthy and whether the
    working set is dirty.
 3. Take the explicit Dolt-native backup above before changing migration state.
-   If the backup itself cannot run, stop and use the diagnostic's documented
-   recovery path; do not substitute a JSONL export for a database backup.
+   If the backup itself cannot run because of this schema guard, do not
+   substitute a JSONL export for a database backup. Continue with the recovery
+   steps below.
 4. Upgrade Beads if the installed version is behind a release that fixes the
    reported migration. Re-run the diagnostic.
 5. Follow the upgraded CLI's exact recovery instruction. For the Beads 1.1
@@ -134,8 +135,22 @@ or an index/column error during a Beads schema migration.
    ```
 
    `bd dolt commit` checkpoints the local Dolt working set; it is not a Git
-   commit. Run it only after the backup and only when the CLI explicitly asks
-   for it.
+   commit. Run it only after the backup when possible and only when the CLI
+   explicitly asks for it.
+
+   If `bd dolt commit` is blocked by the same schema guard, use Dolt directly
+   for the checkpoint, then rerun the migration:
+
+   ```bash
+   bd dolt show
+   dolt --data-dir="$PWD/.beads/dolt" --use-db=<database-name> \
+     sql -q "CALL DOLT_COMMIT('-Am', 'checkpoint before schema migration')"
+   bd migrate schema
+   ```
+
+   Use the database name reported by `bd dolt show`. This direct Dolt command
+   is a recovery-only workaround for the wrapper deadlock; do not use it for
+   ordinary Beads changes.
 6. Validate with `bd doctor`, `bd stats`, and representative read commands
    such as `bd ready` and `bd list --status=open`. Then take another backup.
 

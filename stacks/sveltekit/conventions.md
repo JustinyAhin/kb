@@ -59,6 +59,14 @@ The last command may be omitted when the repository has a narrower documented
 check. If `check` or `build` regenerates adapter-specific types, inspect the
 resulting diff and do not hand-edit generated output.
 
+Run checks in the repository's documented order. Some adapters leave compiled
+JavaScript under a generated directory that a later type check can discover. In
+those projects, run the source/type check before the production build. If the
+check must be repeated afterward, clear only disposable generated build output
+with the repository's supported clean step, regenerate types, and then rerun
+the check. Do not treat diagnostics from compiled adapter output as source
+diagnostics.
+
 ## Documentation
 
 - https://svelte.dev/docs/svelte/llms.txt
@@ -69,4 +77,3 @@ Cloudflare-specific runtime guidance is in
 [`../cloudflare-workers/conventions.md`](../cloudflare-workers/conventions.md).
 The recurring D1/Drizzle/Atlas pattern is in
 [`../cloudflare-workers/d1-drizzle-atlas.md`](../cloudflare-workers/d1-drizzle-atlas.md).
-

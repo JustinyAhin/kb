@@ -6,6 +6,8 @@ Short runbooks and notes for everyday engineering work.
 
 - [Engineering workflow](engineering/workflow.md)
 - [Code conventions](engineering/code-conventions.md)
+- [Change and pull-request review](engineering/reviewing.md)
+- [Documentation ownership](engineering/documentation.md)
 - [SvelteKit conventions](stacks/sveltekit/conventions.md)
 - [Cloudflare Workers conventions](stacks/cloudflare-workers/conventions.md)
 
@@ -13,6 +15,8 @@ Short runbooks and notes for everyday engineering work.
 
 - [Engineering workflow](engineering/workflow.md)
 - [Code conventions](engineering/code-conventions.md)
+- [Change and pull-request review](engineering/reviewing.md)
+- [Documentation ownership](engineering/documentation.md)
 - [Git workflow](engineering/git.md)
 - [Beads workflow and backup](engineering/issue-tracking.md)
 

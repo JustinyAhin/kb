@@ -9,6 +9,8 @@
   change. Prefer the smallest change that solves the requested problem.
 - Keep changes surgical: preserve established patterns and avoid unrelated
   refactors or formatting churn.
+- Follow [documentation ownership](documentation.md): update the canonical
+  decision or runbook and link to it instead of creating another copy.
 
 ## Environment and secrets
 
@@ -27,6 +29,9 @@ After all edits, and once per task rather than after every file:
 4. Report unrelated pre-existing failures instead of modifying unrelated files.
 5. Stop temporary development servers before handing work back.
 
+For pull-request review, integrated-branch verification, flaky-test triage, and
+safe worktree use, follow [Change and pull-request review](reviewing.md).
+
 Use the repository’s package scripts as the source of truth. Most current
 projects use Bun, but do not replace a repository’s declared package manager
 with Bun automatically.
@@ -40,4 +45,3 @@ with Bun automatically.
 - If the repository uses Beads (`bd`), inspect `bd prime`/the local workflow,
   create or update issues only when the task calls for it, and do not close an
   issue merely because the implementation is finished.
-

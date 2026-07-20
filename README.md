@@ -30,6 +30,7 @@ Short runbooks and notes for everyday engineering work.
 
 - [Cloudflare Workers logs](operations/cloudflare-workers-logs.md)
 - [PostHog MCP](operations/posthog-mcp.md)
+- [Statamic with Infisical on Dokploy](operations/statamic-infisical-dokploy.md)
 
 ## Tools
 

@@ -28,10 +28,24 @@ Use predictable names that keep raw and annotated files paired:
 
 ```text
 authority-hero-raw.png
+authority-hero-overlay.svg
+authority-hero-overlay.png
 annotated-authority-hero.png
 flow-raw.webm
 annotated-flow.mp4
 ```
+
+Treat those files as three different artifact roles:
+
+- `*-raw.*` is the untouched browser capture.
+- `*-overlay.svg` and `*-overlay.png` are transparent intermediates containing
+  only annotations. A browser or image viewer may display their transparent
+  canvas as white or black, so they can look blank except for the callouts.
+- `annotated-*` is the composited deliverable containing both the product UI
+  and annotations.
+
+Do not present an overlay file as the finished screenshot. Share the raw source
+only when useful for comparison; otherwise share the final `annotated-*` file.
 
 ## Capture the untouched source
 
@@ -60,6 +74,19 @@ agent-browser --session product-demo close
 
 Use an explicit viewport only when `1440×1000` is part of the intended output.
 Capture important states as PNG files in the same session.
+
+Do not assume the screenshot API's byte format from the filename you intended
+to use. Check every raw capture immediately:
+
+```sh
+file "$demo_tmp_dir/authority-hero-raw.png"
+```
+
+The reported format must match the extension. If the browser returned JPEG
+bytes, save the untouched capture with a `.jpg` extension or explicitly
+convert a copy to PNG. Never store JPEG bytes under a `.png` name; some tools
+will decode the magic bytes anyway, which hides the mistake until a stricter
+consumer fails.
 
 ## Fast path for annotated screenshots
 
@@ -92,6 +119,12 @@ in a transparent SVG with the exact source dimensions:
 </svg>
 ```
 
+The SVG must remain transparent outside the annotation shapes. Do not add a
+full-canvas white background rectangle: after rasterization it would cover the
+source screenshot during composition. When inspecting the SVG or overlay PNG
+by itself, a white or black background usually represents viewer-supplied
+transparency, not pixels that will appear in the final composite.
+
 Rasterize and composite the overlay while leaving the raw capture untouched:
 
 ```sh
@@ -110,6 +143,11 @@ ffmpeg -hide_banner -loglevel error -y \
 Use the actual screenshot dimensions in the SVG and `rsvg-convert` command.
 This path is appropriate for a small set of stills with simple callouts. Switch
 to Remotion when annotations need timing, animation, or repeated behavior.
+
+Inspect the composited `annotated-*` file, not the overlay alone. If the final
+image contains callouts on a white, black, or empty canvas instead of the
+product UI, either the source input was omitted or the overlay lost its alpha
+channel.
 
 ## Visual language
 
@@ -325,6 +363,15 @@ ffprobe -v error \
   "$demo_tmp_dir/annotated-flow.mp4"
 ```
 
+- Run `file` on every capture and final image; extensions must match their
+  encoded formats.
+- Inspect every raw capture and every final `annotated-*` deliverable.
+- Do not reject a standalone overlay merely because its transparent canvas is
+  shown as white or black. Confirm it has an alpha-capable format such as
+  `rgba`, then judge the composite.
+- Confirm each final screenshot contains the complete source UI plus the
+  intended annotations. A final image showing annotations on an empty canvas
+  is a failed composite and must not be shared.
 - Inspect a frame from every callout interval.
 - Check the first and last six frames of transitions for flicker.
 - Confirm labels do not cover highlighted values or controls.

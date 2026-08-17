@@ -29,6 +29,7 @@ Short runbooks and notes for everyday engineering work.
 ## Operations
 
 - [Cloudflare Workers logs](operations/cloudflare-workers-logs.md)
+- [Dokploy volume backups](operations/dokploy-volume-backups.md)
 - [PostHog MCP](operations/posthog-mcp.md)
 - [Statamic with Infisical on Dokploy](operations/statamic-infisical-dokploy.md)
 

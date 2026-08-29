@@ -15,11 +15,14 @@ Confirm the token is valid and has Workers Observability scopes. Never print tok
 List telemetry fields around the incident window:
 
 ```bash
-cf workers observability telemetry keys \
+cf observability telemetry keys \
   --from <from-ms> \
   --to <to-ms> \
   --limit 200
 ```
+
+With `cf` v0.6.0, Workers Observability is a top-level `cf observability`
+command. Do not insert `workers` before `observability`.
 
 Common fields include:
 
@@ -46,61 +49,40 @@ After every query, verify that `run.timeframe.from` and `run.timeframe.to` match
 
 ## Historical query workflow
 
-`cf workers observability telemetry query` requires a saved `queryId`. Create a temporary saved query, run it, and delete it afterward.
+For repeated comparisons, create a temporary saved query, pass its `id` to
+`cf observability telemetry query`, and delete it afterward.
 
-Create the query with the OAuth token already managed by `cf`. This macOS example reads the CLI credential store without printing the token:
+Create the query through `cf` so the CLI handles authentication:
 
 ```bash
-node - <<'NODE'
-(async () => {
-const fs = require('fs');
-const raw = fs
-  .readFileSync(`${process.env.HOME}/Library/Preferences/.cf/auth.jsonc`, 'utf8')
-  .replace(/\/\/.*$/gm, '');
-const { oauth_token } = JSON.parse(raw);
-const account = '<account-id>';
-const body = {
-  name: `tmp-worker-debug-${Date.now()}`,
-  description: 'temporary query for Worker debugging',
-  parameters: {
-    limit: 50,
-    filterCombination: 'and',
-    filters: [
+cf observability queries create --body '{
+  "name": "tmp-worker-debug",
+  "description": "temporary query for Worker debugging",
+  "parameters": {
+    "limit": 50,
+    "filterCombination": "and",
+    "filters": [
       {
-        key: '$workers.scriptName',
-        operation: 'eq',
-        type: 'string',
-        value: '<worker-name>'
+        "key": "$workers.scriptName",
+        "operation": "eq",
+        "type": "string",
+        "value": "<worker-name>"
       },
       {
-        key: '$workers.event.request.path',
-        operation: 'eq',
-        type: 'string',
-        value: '<request-path>'
+        "key": "$workers.event.request.path",
+        "operation": "eq",
+        "type": "string",
+        "value": "<request-path>"
       }
     ]
   }
-};
-const res = await fetch(
-  `https://api.cloudflare.com/client/v4/accounts/${account}/workers/observability/queries`,
-  {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${oauth_token}`,
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  }
-);
-console.log(await res.text());
-})();
-NODE
+}'
 ```
 
-Copy `result.id`, then query events or invocations:
+Copy `id`, then query events or invocations:
 
 ```bash
-cf workers observability telemetry query \
+cf observability telemetry query \
   --query-id <query-id> \
   --view events \
   --timeframe-from <from-ms> \
@@ -109,7 +91,7 @@ cf workers observability telemetry query \
 ```
 
 ```bash
-cf workers observability telemetry query \
+cf observability telemetry query \
   --query-id <query-id> \
   --view invocations \
   --timeframe-from <from-ms> \
@@ -126,7 +108,7 @@ Keep the Worker filter even when the route appears unique, so a broad account qu
 Use `calculations` for equivalent-window comparisons:
 
 ```bash
-cf workers observability telemetry query \
+cf observability telemetry query \
   --query-id <query-id> \
   --view calculations \
   --timeframe-from <from-ms> \
@@ -162,31 +144,13 @@ A broad POST count corroborates activity but is not automatically a feature-spec
 Always delete the temporary query:
 
 ```bash
-node - <<'NODE'
-(async () => {
-const fs = require('fs');
-const raw = fs
-  .readFileSync(`${process.env.HOME}/Library/Preferences/.cf/auth.jsonc`, 'utf8')
-  .replace(/\/\/.*$/gm, '');
-const { oauth_token } = JSON.parse(raw);
-const account = '<account-id>';
-const id = '<query-id>';
-const res = await fetch(
-  `https://api.cloudflare.com/client/v4/accounts/${account}/workers/observability/queries/${id}`,
-  {
-    method: 'DELETE',
-    headers: { authorization: `Bearer ${oauth_token}` }
-  }
-);
-console.log(await res.text());
-})();
-NODE
+cf observability queries delete <query-id> --force
 ```
 
 Verify cleanup:
 
 ```bash
-cf workers observability queries list
+cf observability queries list
 ```
 
 Use a recognizable `tmp-` prefix. For repeated investigations, wrap creation and execution in a script with deletion in a `finally` block so a failed query cannot leave saved queries behind.
@@ -209,9 +173,10 @@ Do not use `cf analytics dashboard get`; Cloudflare returns error `1015` because
 node - <<'NODE'
 (async () => {
 const fs = require('fs');
-const raw = fs
-  .readFileSync(`${process.env.HOME}/Library/Preferences/.cf/auth.jsonc`, 'utf8')
-  .replace(/\/\/.*$/gm, '');
+const raw = fs.readFileSync(
+  `${process.env.HOME}/Library/Preferences/cloudflare/config/default.json`,
+  'utf8'
+);
 const { oauth_token } = JSON.parse(raw);
 const zone = '<zone-id>';
 const query = `

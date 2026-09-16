@@ -3,16 +3,98 @@
 ## Project workflow
 
 This project uses **bd (beads)** for issue tracking.
-Run `bd prime` for workflow context, or install hooks (`bd hooks install`) for auto-injection.
+Run `bd prime` for workflow context. Keep project agent instructions to one
+sentence linking to this runbook; install agent integrations or hooks only when
+the project asks for them.
 
 **Quick reference:**
 
 - `bd ready` — find unblocked work
+- `bd epic status` — inspect progress across epics
+- `bd show <id>` — read scope, acceptance criteria, and dependencies
 - `bd create "Title" --type task --priority 2` — create issue
 - `bd close <id>` — complete work
-- `bd dolt push` — push beads to remote
+- `bd dolt push` — only for a deliberately adopted remote and an authorized push
 
 For full workflow details: `bd prime`
+
+Use Beads for live status and dependencies, and the project KB for supporting
+briefs, research, decisions, and verification evidence. Include acceptance
+criteria and evidence links in tickets. Backfill completed work as closed only
+when verified; keep proposed research and unauthorized publication deferred.
+Creating a ticket does not authorize publishing, messaging, purchasing, or
+deployment. Follow [Git authorization](git.md) for commits and pushes.
+
+## Minimal initialization
+
+For a new local tracker, first inspect `bd --version`, `bd init --help`, and the
+repository's existing files and Git status. Do not reinitialize an existing
+database to change preferences.
+
+The following was checked with Beads 1.1.0 in a disposable Git repository on
+September 16, 2026, including a configured Git origin:
+
+```bash
+bd init --prefix <project-prefix> --stealth --skip-agents --skip-hooks --remote= --non-interactive
+bd config set dolt.local-only true
+bd config set backup.enabled false
+bd config set backup.git-push false
+bd config set dolt.auto-push false
+```
+
+This created the embedded Dolt database without a Git commit, generated agent
+files, installed Git hooks, or Dolt remote. `--remote=` explicitly selects no
+remote. Stealth mode suppresses the initializer's automatic Git commit and adds
+local ignore entries in `.git/info/exclude`; it does not prevent later deliberate
+tracking of configuration or `.beads-backup/`.
+
+When a Git commit is explicitly authorized, first create the native backup under
+the policy below. For a new setup initialized in stealth mode, add the small
+configuration files explicitly, without force-adding the database directory:
+
+```bash
+git add -f .beads/.gitignore .beads/config.yaml .beads/metadata.json
+git add .beads-backup/ scripts/beads-backup.sh
+```
+
+Also include any intentional project docs or `.beads/PRIME.md` customization.
+Already-tracked configuration stays tracked when stealth initialization is used
+in a new clone. The native backup remains the portable recovery source.
+
+**Version-specific behavior:** In 1.1.0, `--skip-hooks` alone does not skip
+Claude/Codex setup; use `--skip-agents` too. Ordinary non-stealth initialization
+can infer a Dolt remote from Git and automatically stage and commit setup files,
+including existing agent/configuration paths. Neither `--skip-agents` nor
+`--skip-hooks` disables that bootstrap commit. This was observed during setup
+and corroborated in the [1.1.0 initializer source](https://github.com/gastownhall/beads/blob/v1.1.0/cmd/bd/init.go).
+Recheck installed behavior before using these instructions with another version.
+
+If a new initializer has already inferred an unwanted remote, first set
+`bd config set no-git-ops true`, then inspect
+`bd dolt remote list`, remove only that newly introduced remote with
+`bd dolt remote remove <name>`, and clear its inferred `sync.remote` setting with
+`bd config unset sync.remote`. Preserve pre-existing remotes and user files.
+Remove generated agent scaffolding only after confirming which files were
+created by the setup; do not overwrite the user's instructions. Report any
+automatic setup/configuration commits rather than silently rewriting Git history.
+
+### Embedded-mode diagnostics
+
+In Beads 1.1.0, `bd doctor` reports that it is unsupported in embedded mode and
+can still exit zero. That is not a passed health check. Use the available checks:
+
+```bash
+bd stats
+bd list --all --limit 0
+bd ready
+bd dep cycles
+bd lint --status all
+```
+
+Inspect representative `bd show <id>` results and verify parent/dependency
+references. These checks do not replace all doctor diagnostics or prove backup
+restore works. Do not reinitialize or migrate a healthy database merely to make
+doctor available. For server-backed databases, use the doctor commands below.
 
 ## Beads backup and recovery runbook
 
@@ -39,7 +121,7 @@ Add `scripts/beads-backup.sh`:
 ```bash
 #!/usr/bin/env bash
 # Sync a Dolt-native Beads backup to a git-tracked directory.
-# Restore with: bd init --prefix <project-prefix> --skip-hooks && bd backup restore .beads-backup/ --force
+# Restore: initialize using the minimal command above, then bd backup restore .beads-backup/ --force
 
 set -euo pipefail
 
@@ -67,7 +149,8 @@ echo "Beads backup synced to $BACKUP_DIR/"
 echo "Commit the changed files in $BACKUP_DIR/ to make the backup portable."
 ```
 
-Record the policy and restore command in the project-level agent instructions.
+Keep project-level agent instructions to one sentence pointing to this runbook.
+Record the prefix, storage mode, and any project-specific details in its KB.
 Do not add a Dolt remote unless the project deliberately adopts one.
 
 ### Normal backup and restore
@@ -83,10 +166,17 @@ On a new machine, initialize the project database, then restore the tracked
 backup:
 
 ```bash
-bd init --prefix <project-prefix> --skip-hooks
+bd init --prefix <project-prefix> --stealth --skip-agents --skip-hooks --remote= --non-interactive
+bd config set dolt.local-only true
 bd backup restore .beads-backup/ --force
-bd doctor
+bd stats
+bd ready
+bd dep cycles
 ```
+
+Restore replaces the target database; protect existing work before using
+`--force`. Run `bd doctor` when supported by the storage mode, and do not report
+unperformed restore checks as passing.
 
 ### Upgrading Beads
 

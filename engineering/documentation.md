@@ -1,57 +1,61 @@
 # Documentation ownership
 
-Documentation stays useful when each fact has one canonical owner and every
-other location links to it. Prefer a short route to the source over a second
-copy that can drift.
+Give each fact one authoritative owner. Link to that owner instead of keeping another copy.
 
 ## Where information belongs
 
-| Location                   | Purpose                                                                                                                      |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Repository `README.md`     | A brief entry point: what the repository is, the minimum local start, and links to deeper documentation.                     |
-| `AGENTS.md` or `CLAUDE.md` | Routing and enforceable agent instructions. Link to conventions and product decisions instead of restating them.             |
-| Shared KB                  | Reusable engineering conventions, review practices, stack guidance, and cross-project runbooks.                              |
-| Project KB                 | Product requirements, domain contracts, accepted decisions, design rules, and project-specific operations.                   |
-| ADR                        | Why one consequential technical choice was made, its alternatives, and its consequences.                                     |
-| Runbook                    | Commands, prerequisites, verification, rollback, and recovery for one operated system.                                       |
-| Code and configuration     | Exact scripts, bindings, defaults, schemas, and behavior that can be derived reliably from the implementation.               |
-| Issue tracker              | Temporary work state, acceptance criteria, and implementation history. It is not the long-term home of an accepted decision. |
+| Location               | Purpose                                                                    |
+| ---------------------- | -------------------------------------------------------------------------- |
+| Repository README      | Project purpose, minimum local start, and guide links                      |
+| Agent instructions     | Enforceable rules and routes to their owners                               |
+| Shared KB              | Reusable engineering, documentation, stack, and operations guidance        |
+| Project KB             | Product scope, domain contracts, decisions, design, and project operations |
+| Decision record        | A consequential choice, its reason, alternatives, and consequences         |
+| Runbook                | Prerequisites, commands, verification, rollback, and recovery              |
+| Code and configuration | Exact scripts, bindings, defaults, schemas, and implemented behavior       |
+| Issue tracker          | Active work, dependencies, acceptance criteria, and completion status      |
 
-A README should not become an architecture document or an operations manual.
-Keep quick-start commands there only when they help a new contributor reach the
-canonical tooling. Put deployment, smoke checks, recovery, and rollback in a
-runbook under the project KB.
+## Writing policy
 
-## Avoiding duplication
+Use **ASD-STE100 Issue 9** for maintained English documentation and explanatory public text.
+Use the [official standard](https://www.asd-ste100.org/assets/files/ASD-STE100_ISSUE9.pdf) for writing rules and the controlled dictionary.
 
-- Choose one normative document for each decision or invariant.
-- Link to the normative section from summaries, instructions, and runbooks.
-- A summary may explain why a linked document matters, but should not repeat
-  change-prone values, command sequences, state machines, or checklists.
-- Keep product summaries intentionally broad. Detailed workflow behavior belongs
-  in contracts; implementation rationale belongs in an ADR; operator actions
-  belong in a runbook.
-- Keep exact commands in `package.json` or another executable configuration and
-  refer to the script name from documentation.
-- When moving content, remove or replace the old copy in the same change.
+- Answer the reader's question first. Give each document one clear purpose.
+- Write at most 20 words per instructional sentence and 25 words per descriptive sentence.
+- Give one instruction per sentence. Use active voice in procedures.
+- Put a necessary condition before the action it controls.
+- Use approved words with their approved meanings and parts of speech.
+- Define necessary technical nouns and verbs in the owning domain guide. Use one term for one meaning.
+- Use simple sentence structures. Replace semicolons with separate sentences.
+- Remove filler, slogans, repeated summaries, process narration, and unsupported claims.
+- Use lists for procedures and tables for comparisons. Do not add a word quota.
+- Preserve literal code, commands, equations, URLs, quotations, and original source snapshots.
+- Do a dictionary and rule review before claiming full STE compliance. A readability score or sentence-length scan is insufficient.
 
-Some repetition is deliberate: a safety boundary may appear as a one-line
-invariant in a contract and as an actionable check in a runbook. The wording
-should point to the same owner and serve a different reader, not create two
-independent definitions.
+Keep documents readable. Leave blank lines between logical sections.
+A procedure must state its prerequisites, actions, expected result, and necessary failure or recovery steps.
+
+## Preventing duplication
+
+- Keep current behavior in its topic owner. Keep performed checks in dated evidence and active tasks in the tracker.
+- Keep quick-start commands in a README only when they help the reader reach the canonical tooling.
+- Keep deployment and recovery steps in the operated system's runbook.
+- Link to exact scripts in executable configuration. Do not maintain another script inventory without a distinct purpose.
+- Do not repeat change-prone counts, command sequences, state machines, or checklists in summaries.
+- Combine related briefs and reviews when separate files add no value.
+- Preserve unique source evidence, methods, reviewer roles, corrections, and actual verification.
+- Identify consumers before moving or removing a file. Update references in the same change.
+
+A short safety boundary can appear in a contract and a runbook when it serves different readers.
+The two references must point to the same owner.
 
 ## Documentation review
 
-Before adding a document or section:
+1. Identify the reader's question.
+2. Find the existing topic owner.
+3. Update that owner, or create a document only for a distinct audience and lifecycle.
+4. Replace duplicate material with links.
+5. Review the text against the writing policy.
+6. Verify affected links, indexes, and applicable existing checks.
 
-1. Search the shared and project KBs for an existing owner.
-2. Decide whether the information is reusable engineering guidance or a
-   project-specific product/operations decision.
-3. Extend the owner when the subject already exists; create a document only
-   when it has a distinct audience and lifecycle.
-4. Replace duplicated text with links.
-5. Check inbound links and the relevant KB index after moving content.
-
-Review documentation when the behavior changes, not as a separate cleanup at
-the end. A code change is incomplete when its canonical contract or runbook is
-now false.
+Update documentation when behavior changes. A change is incomplete while its authoritative contract or runbook remains false.

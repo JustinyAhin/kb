@@ -28,6 +28,7 @@ Short runbooks and notes for everyday engineering work.
 
 ## Operations
 
+- [Ubuntu VPS setup with Tailscale SSH](operations/vps-tailscale-setup.md)
 - [Cloudflare Workers logs](operations/cloudflare-workers-logs.md)
 - [Dokploy volume backups](operations/dokploy-volume-backups.md)
 - [PostHog MCP](operations/posthog-mcp.md)

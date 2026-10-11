@@ -39,7 +39,8 @@ with Bun automatically.
 ## Git and issue tracking
 
 - Do not commit unless the user explicitly asks for a commit.
-- Do not add `Co-Authored-By` lines.
+- Follow [Git workflow](git.md) for commit messages: no AI attribution or agent
+  metadata, including `Amp-Thread-ID` and `Co-authored-by` trailers.
 - Where the repository uses tagged commits, prefix messages with a short topic
   tag such as `[feat]`, `[fix]`, `[ui]`, `[db]`, `[infra]`, or `[chore]`.
 - If the repository uses Beads (`bd`), inspect `bd prime`/the local workflow,

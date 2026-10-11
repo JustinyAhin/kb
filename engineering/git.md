@@ -8,7 +8,8 @@
 
 ## Commit messages
 
-- Do not add `Co-Authored-By` lines to commit messages.
+- Do not add AI attribution or agent metadata to commit messages, including
+  `Amp-Thread-ID` links and `Co-authored-by` trailers (regardless of casing).
 - Keep commit descriptions short. Add a body only when it carries meaningful
   context, such as a non-obvious reason, tricky tradeoff, or follow-up note.
 - Prefix every commit with a concise topic tag in square brackets so history

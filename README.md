@@ -23,11 +23,13 @@ Short runbooks and notes for everyday engineering work.
 ## Stacks
 
 - [SvelteKit conventions](stacks/sveltekit/conventions.md)
+- [SvelteKit environment variables with Varlock and 1Password](stacks/sveltekit/environment-variables-with-varlock-and-1password.md)
 - [Cloudflare Workers conventions](stacks/cloudflare-workers/conventions.md)
 - [D1 + Drizzle + Atlas](stacks/cloudflare-workers/d1-drizzle-atlas.md)
 
 ## Operations
 
+- [Environment variables with Varlock and 1Password](operations/environment-variables-with-varlock-and-1password.md)
 - [Ubuntu VPS setup with Tailscale SSH](operations/vps-tailscale-setup.md)
 - [Cloudflare Workers logs](operations/cloudflare-workers-logs.md)
 - [Dokploy volume backups](operations/dokploy-volume-backups.md)

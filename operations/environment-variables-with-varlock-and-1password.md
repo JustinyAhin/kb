@@ -19,7 +19,7 @@ Keep real account details and values outside this public repository.
 | Service account | Gives a machine access to selected vaults or Environments. Environment access is read only. |
 | Bootstrap token | Authenticates the loader before it can fetch application secrets. This is also called *secret zero*. |
 
-Create separate Environments for separate access needs:
+If using Environments, create separate Environments for separate access needs:
 
 ```text
 1Password
@@ -46,9 +46,9 @@ A repository script, framework integration, or executable CLI launcher must perf
 
 ## Prerequisites
 
-- Permission to create 1Password Environments and service accounts.
+- Permission to create the chosen 1Password vaults or Environments and service accounts.
 - 1Password CLI (`op`) on each machine.
-- An Environment-capable CLI beta, version `2.33.0-beta.02` or later, for the CLI authentication path used here.
+- For Environment loading through the CLI, an Environment-capable beta, version `2.33.0-beta.02` or later.
 - Varlock on each machine, or a pinned project dependency.
 - A normal Unix account for server development and agents.
 - Access to the original application binary before installing a CLI launcher.
@@ -87,6 +87,8 @@ Restart a runner only if its service configuration changed.
 
 ## 1. Create the 1Password scope
 
+This procedure uses selected Environments. The dedicated-vault alternative follows below.
+
 1. In the desktop app, open **Developer → Environments**.
 2. Create `shared-creds` for CLI credentials, or `example-project-dev` for a project.
 3. Add the variable names required by the tool or project.
@@ -102,13 +104,83 @@ For server access, use the [service-account web wizard](https://www.1password.de
 4. Save the token in a private password-manager item.
 
 The token is shown once. Do not paste it into chat, command arguments, shell history, or public documentation.
-Service-account permissions and Environment selections cannot change after creation.
+Service-account permissions, selected vaults, and selected Environments cannot change after creation.
 Create a replacement account when another scope is needed.
 The existing shared CLI account cannot automatically access a new project Environment.
+Adding another vault also requires a replacement account.
+See [service-account grant restrictions](https://www.1password.dev/service-accounts/get-started#create-a-service-account).
 
 On the Mac, enable the [desktop app CLI integration](https://www.1password.dev/cli/app-integration).
 Keep the service token unset when desktop authentication is intended.
 Desktop authentication uses the signed-in person's access, which can exceed the selected schema's scope.
+
+### Alternative: reusable access through a dedicated vault
+
+Selected Environments provide separate project access scopes.
+A dedicated vault is an optional way to reuse an account for credentials with the same access requirements.
+Group credentials by their access requirements. Choose vault names and item structure for the project or workflow.
+Choose the model before creating the account. This runbook does not require switching an existing setup.
+
+| Model | Adding a project | Access boundary |
+| --- | --- | --- |
+| Selected Environments | Create a replacement account if the new Environment was not selected at creation. | The account reads the selected Environments. |
+| Dedicated vault | Add an item to the already selected vault and reference its fields. | The account reads every item in that vault. |
+
+The vault grant stays fixed, but the vault's contents can change.
+The same account can read future items added to that vault without a new account.
+It cannot access a newly created vault without replacement.
+See the [vault read-access boundary](https://www.1password.dev/service-accounts/security#security-model).
+
+If choosing this model:
+
+1. Create a dedicated vault, such as `example-vault`.
+2. Include only credentials with the same access requirements.
+3. Add items with named fields. For project credentials, `example-project` with an `api-key` field is one possible structure.
+4. Create a service account with read-only access to the selected vault.
+5. Leave vault creation, write access, and unrelated vault or Environment access disabled.
+6. Save the token through the protected-token procedure below.
+
+Use Varlock's `op()` resolver for each required field instead of `opLoadEnvironment()`:
+
+```dotenv
+# @plugin(@varlock/1password-plugin@2.0.5)
+# @import(~/.config/varlock/example-project/.env.local, pick=[OP_TOKEN], allowMissing=true)
+# @initOp(token=$OP_TOKEN, allowAppAuth=true, useCliWithServiceAccount=true)
+# @defaultSensitive=true
+# ---
+
+# @type=opServiceAccountToken @internal @optional
+OP_TOKEN=
+
+# @internal @optional
+OP_SERVICE_ACCOUNT_TOKEN=
+
+# @required @type=string
+EXAMPLE_API_KEY=op("op://example-vault/example-project/api-key")
+```
+
+An `op://` reference identifies a vault, item, and field. It contains a lookup path rather than the secret value.
+See [1Password secret references](https://www.1password.dev/cli/secret-references) for reference syntax and section paths.
+Copy the field's secret reference from 1Password. Keep private names and IDs outside public configuration when necessary.
+This model does not need `OP_ENVIRONMENT_ID` or the bulk Environment resolver.
+The existing startup commands and automatic CLI launchers can remain.
+See [Varlock field references](https://varlock.dev/plugins/1password/#pulling-data-from-1password) for the resolver and authentication options.
+
+The schema limits what Varlock injects into the application. It does not limit the account's vault-wide read access.
+A stolen token or unrestricted agent can read other projects' items in the same vault.
+Use separate vaults and accounts when that exposure is unacceptable.
+
+Where access requirements differ, use separate scopes.
+For example, signing or publishing credentials can need tighter access than development credentials.
+A separate vault and account can provide that scope without prescribing a fixed number of vaults.
+Separate vaults do not isolate credentials if the same unrestricted Unix user can read both bootstrap token files.
+If a token must be unavailable to an agent, keep it outside that agent's Unix account.
+Use a controlled session, a different operating-system user, or an isolated credential broker where that boundary is needed.
+Read access in 1Password does not reduce a retrieved credential's signing, publishing, or other application powers.
+Cloudflare production secrets remain separate unless the deployment workflow deliberately integrates them.
+
+Before replacing an Environment-based setup, verify the new field references and token scope with the existing safe checks.
+Keep the working account available until verification passes. Revoke unused accounts after migration.
 
 ## 2. Store one server bootstrap token
 
@@ -140,6 +212,7 @@ fi
 
 Paste the token only at the hidden prompt.
 For a separate project account, change the file name to `example-project-dev`.
+For a reusable vault account, use a name that identifies its access scope.
 Do not export the token in global shell startup files.
 Keep token directories at mode `700` and files at mode `600`, owned by the development user.
 An existing protected token file can supply the resolver. Do not make another copy without a need.
@@ -271,7 +344,8 @@ Reapply the launcher after such installations and repeat verification.
 
 ## 5. Put project loading in repository scripts
 
-Give each project its own schema and Environment.
+Give each project its own schema.
+Use its selected Environment or dedicated-vault field references, according to the chosen access model.
 Keep the secret-loading step in the project's existing startup command.
 For SvelteKit setup and script consumers, follow the [stack guide](../stacks/sveltekit/environment-variables-with-varlock-and-1password.md).
 For a Bun and Vite project, an example `package.json` entry is:
@@ -297,7 +371,7 @@ Adapt the shared schema for project use:
 - Keep bootstrap settings internal, including the legacy `OP_SERVICE_ACCOUNT_TOKEN` name.
 
 Create the external machine configuration on each development machine.
-Use desktop authentication on the Mac and the project's scoped token on the server.
+Use desktop authentication on the Mac and the chosen scoped token on the server.
 The ordinary startup command stays:
 
 ```bash
@@ -423,6 +497,8 @@ Remove obsolete token files and revoke unused accounts afterward.
 - [1Password Environments](https://www.1password.dev/environments)
 - [1Password Environment reading and authentication](https://www.1password.dev/environments/read-environment-variables)
 - [1Password service-account creation and scope](https://www.1password.dev/service-accounts/get-started)
+- [1Password service-account security and vault boundaries](https://www.1password.dev/service-accounts/security)
+- [1Password secret references](https://www.1password.dev/cli/secret-references)
 - [1Password CLI desktop app integration](https://www.1password.dev/cli/app-integration)
 - [1Password service-account rate limits](https://www.1password.dev/service-accounts/rate-limits)
 - [Varlock installation](https://varlock.dev/getting-started/installation/)

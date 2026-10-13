@@ -2,6 +2,7 @@
 
 This is one optional approach for projects and CLI tools that use Varlock with 1Password.
 Each project can choose another secret management workflow.
+For Infisical as the secret source, see [Environment variables with Infisical](environment-variables-with-infisical.md).
 Use 1Password to store values. Use Varlock to load and check them when a command starts.
 Project scripts and CLI launchers keep normal commands such as `bun run dev` and `example-cli`.
 

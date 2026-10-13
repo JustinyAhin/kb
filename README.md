@@ -29,6 +29,7 @@ Short runbooks and notes for everyday engineering work.
 
 ## Operations
 
+- [Environment variables with Infisical](operations/environment-variables-with-infisical.md)
 - [Environment variables with Varlock and 1Password](operations/environment-variables-with-varlock-and-1password.md)
 - [Ubuntu VPS setup with Tailscale SSH](operations/vps-tailscale-setup.md)
 - [Cloudflare Workers logs](operations/cloudflare-workers-logs.md)

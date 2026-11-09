@@ -199,6 +199,49 @@ volume, mount that same volume into both PHP and Caddy at the same path so files
 uploaded by Statamic are visible to the web server. Object storage is another
 option for deployments that should not share a local asset volume.
 
+## Start a prerendered frontend build after each CMS deploy
+
+A frontend that prerenders from the CMS reads it during the build.
+When one push redeploys both, the frontend build can run while the CMS restarts.
+The build then fails with HTTP 404 or 502, or it reads old content.
+
+Add a one-shot Compose service that starts the frontend build after the CMS is ready:
+
+```yaml
+  # The frontend prerenders from this CMS. A build during a CMS deploy fails or reads old content.
+  web-deploy-hook:
+    image: curlimages/curl:8.17.0
+    restart: "no"
+    depends_on:
+      cms-web:
+        condition: service_healthy
+    env_file:
+      - .env
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ -z "$$CF_DEPLOY_HOOK_URL" ]; then echo "CF_DEPLOY_HOOK_URL is empty. No web build."; exit 0; fi
+        for attempt in $$(seq 1 30); do
+          if curl -fsS -o /dev/null "$${CMS_PUBLIC_URL:-https://cms.example.com}/up"; then
+            curl -fsS -X POST "$$CF_DEPLOY_HOOK_URL" -o /dev/null && echo "Web build started." && exit 0
+          fi
+          sleep 5
+        done
+        echo "The public CMS did not answer. No web build."
+        exit 1
+```
+
+1. Create a deploy hook for the production branch in the Cloudflare Workers build settings.
+2. Store its URL as `CF_DEPLOY_HOOK_URL` in the Dokploy Compose environment.
+3. Do not put the URL in Infisical. The curl container does not authenticate to Infisical.
+4. Set `CMS_PUBLIC_URL` when the default host is wrong.
+5. Redeploy the CMS. Confirm that the service log says the build started.
+
+The hook URL starts a build without other authentication. Treat it as a secret.
+An empty value skips the build, so the service is safe before the hook exists.
+The check uses the public URL, so it also confirms the proxy route.
+A push-triggered frontend build can still fail. The hook build then publishes the current content.
+
 ## Verify the deployment
 
 Perform these checks without printing secret values:

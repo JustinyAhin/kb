@@ -231,11 +231,19 @@ Add a one-shot Compose service that starts the frontend build after the CMS is r
         exit 1
 ```
 
-1. Create a deploy hook for the production branch in the Cloudflare Workers build settings.
-2. Store its URL as `CF_DEPLOY_HOOK_URL` in the Dokploy Compose environment.
-3. Do not put the URL in Infisical. The curl container does not authenticate to Infisical.
-4. Set `CMS_PUBLIC_URL` when the default host is wrong.
-5. Redeploy the CMS. Confirm that the service log says the build started.
+1. In Cloudflare, open **Workers & Pages**, select the Worker, and open **Settings**.
+2. In **Builds**, find **Deploy Hooks** and select **Add**.
+3. Enter a hook name such as `cms-deploy`. Select the production branch. Select **Save**.
+4. Copy the hook URL that Cloudflare shows.
+5. In Dokploy, open the CMS Compose service and select **Environment**.
+6. Add `CF_DEPLOY_HOOK_URL=<hook URL>` on its own line. Select **Save**.
+7. Do not put the URL in Infisical. The curl container does not authenticate to Infisical.
+8. Set `CMS_PUBLIC_URL` when the default host is wrong.
+9. On the **General** tab, select **Deploy**.
+10. In the `web-deploy-hook` container log, confirm that the build started.
+11. In Cloudflare, confirm that **Last triggered** changed and a new build ran.
+
+Keep **Autodeploy** on in Dokploy. Each push then redeploys the CMS and starts the hook build.
 
 The hook URL starts a build without other authentication. Treat it as a secret.
 An empty value skips the build, so the service is safe before the hook exists.

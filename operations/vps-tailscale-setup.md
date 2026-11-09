@@ -174,6 +174,10 @@ Keep expiry on user devices unless you have a specific reason to change it.
 Device key expiry and the SSH rule's 12-hour sign-in check are separate.
 See [key expiry](https://tailscale.com/docs/features/access-control/key-expiry).
 
+Renewing an expired key does not disable expiry. The renewed key gets a new
+expiry date. If you want expiry disabled, select **Disable key expiry** after
+the renewal. Then check the displayed setting again.
+
 ## 6. Restrict public access with UFW
 
 Continue from the working Tailscale SSH session. These commands assume a fresh
@@ -256,11 +260,74 @@ working connection as proof that the firewall is active.
 Reboot once at a suitable time. Test a new Tailscale SSH connection.
 Check `systemctl is-active tailscaled` and `sudo ufw status verbose` again.
 
+## 8. Add a provider firewall
+
+A provider firewall filters traffic before it reaches the server. Docker cannot
+bypass it. Use one on every server that runs Docker. The example uses the
+Hetzner Cloud CLI. Other providers have equivalent controls.
+
+Prerequisites:
+
+- A provider API token with write access, read from a password manager.
+- A working Tailscale SSH connection and the provider console.
+
+Allow only the public services that you need. This example allows HTTPS and
+direct Tailscale connections:
+
+```bash
+export HCLOUD_TOKEN="$(op read "op://<vault>/<item>/<field>")"
+
+cat > fw-rules.json <<'EOF'
+[
+  {"direction": "in", "protocol": "tcp", "port": "80", "source_ips": ["0.0.0.0/0", "::/0"]},
+  {"direction": "in", "protocol": "tcp", "port": "443", "source_ips": ["0.0.0.0/0", "::/0"]},
+  {"direction": "in", "protocol": "udp", "port": "443", "source_ips": ["0.0.0.0/0", "::/0"]},
+  {"direction": "in", "protocol": "udp", "port": "41641", "source_ips": ["0.0.0.0/0", "::/0"]},
+  {"direction": "in", "protocol": "icmp", "source_ips": ["0.0.0.0/0", "::/0"]}
+]
+EOF
+
+hcloud firewall create --name web-only --rules-file fw-rules.json
+hcloud firewall apply-to-resource web-only --type server --server runner-1
+```
+
+Remove the `80` and `443` rules if the server has no public web service.
+Outbound traffic stays open. Tailscale and Cloudflare Tunnel use outbound
+connections, so they continue to work. UDP `41641` lets peers make direct
+Tailscale connections. Without it, Tailscale uses relays, which are slower.
+
+From your client, test each public port that must be closed:
+
+```bash
+nc -z -w 3 203.0.113.10 5432 && echo OPEN || echo closed
+```
+
+Then make a new Tailscale SSH connection. Test each public site.
+
+Traffic from a container to the server's own public address does not leave
+the server. The provider firewall does not block it. Do not use this path as
+an access method. See [Dokploy private services](dokploy-private-services.md).
+
 ## Docker and application ports
 
 Docker published ports can bypass UFW. A mapping such as `8080:80` can expose a
 container on public host addresses despite UFW's incoming default. Do not rely
 on UFW alone for container access. See [Docker firewall behavior](https://docs.docker.com/engine/network/packet-filtering-firewalls/#docker-and-ufw).
+
+A `DROP` rule in the iptables `INPUT` chain does not block a published port.
+Docker translates the destination address before filtering. The packet then
+goes through the `FORWARD` chain, not `INPUT`. Use the provider firewall, or
+add rules to the `DOCKER-USER` chain.
+
+List the ports that listen on all addresses:
+
+```bash
+sudo ss -tlnpH | awk '{print $4}' | grep -E '^(0\.0\.0\.0|\[::\]|\*):' | sort -u
+```
+
+Every port in this list is public unless a provider firewall blocks it.
+Docker Swarm also opens TCP `2377` and TCP and UDP `7946`. Do not allow these
+ports in a provider firewall for a single-node Swarm.
 
 For a private local service, bind the published port to loopback. For example,
 the service's Compose entry can use:
@@ -304,6 +371,12 @@ sudo systemctl status tailscaled --no-pager
 This can restore public OpenSSH access if OpenSSH is still running and the
 provider firewall permits it. Fix the cause, then repeat the private access
 and firewall checks before enabling UFW again.
+
+To remove the provider firewall from the server:
+
+```bash
+hcloud firewall remove-from-resource web-only --type server --server runner-1
+```
 
 If a device key expired, use the admin console's temporary key extension or
 reauthenticate through the provider console. Do not run

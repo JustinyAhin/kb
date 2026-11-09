@@ -34,6 +34,7 @@ Short runbooks and notes for everyday engineering work.
 - [Ubuntu VPS setup with Tailscale SSH](operations/vps-tailscale-setup.md)
 - [Cloudflare Workers logs](operations/cloudflare-workers-logs.md)
 - [Dokploy volume backups](operations/dokploy-volume-backups.md)
+- [Dokploy private services](operations/dokploy-private-services.md)
 - [PostHog MCP](operations/posthog-mcp.md)
 - [Statamic with Infisical on Dokploy](operations/statamic-infisical-dokploy.md)
 

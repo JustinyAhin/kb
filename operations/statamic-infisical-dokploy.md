@@ -163,6 +163,20 @@ application `public` tree into both the PHP image and the Caddy image. Otherwise
 Caddy can return the HTML response while CSS, JavaScript, Statamic vendor files,
 or uploaded assets return `404`.
 
+Publish the Statamic control panel assets in the final PHP stage. Composer runs
+`statamic:install` after `composer install`. If `composer install` runs only in
+an earlier stage, that step does not reach the final image:
+
+```dockerfile
+RUN php artisan package:discover --ansi \
+    && php artisan vendor:publish --tag=statamic-cp --force \
+    && php artisan view:cache
+```
+
+Without this step, each `/cp` page returns `500` with
+`Vite manifest not found at: .../public/vendor/statamic/cp/build/manifest.json`.
+Copy `public` into the Caddy image after this step.
+
 Dokploy normally terminates public HTTPS before forwarding the request through
 the private Docker network. Configure Laravel to trust those forwarded headers
 so Vite and Statamic generate `https://` URLs:

@@ -24,20 +24,21 @@ Do not give the Caddy container application secrets. It needs the built
 
 ## Configure Infisical
 
-1. Create a dedicated organization machine identity for the CMS. Give it no
-   organization-level access.
-2. Add the identity to the Infisical project with a read-only project role.
-   Prefer a custom role restricted to the production environment and CMS
-   folder when the plan supports that scope.
-3. Enable Universal Auth and create a client secret. Record the Universal Auth
-   client ID and the new client secret; the machine identity ID is not the
-   client ID.
-4. When IP allowlisting is available, restrict both the client secret and the
-   issued access token to the VPS public IP as a `/32`. This is an optional paid
-   feature and should not block deployment on plans that do not include it.
-5. Store the client ID and client secret in the team password manager. Keep
-   them separate from the Dokploy API credential so each can be rotated and
-   shared independently.
+1. Check existing organization machine identities and their project grants.
+2. Select an identity whose grants match the CMS workload.
+   If access requirements differ, create a separate identity.
+   Use **No Access** at organization level.
+3. Add the identity to the Infisical project with a read-only project role.
+   Prefer a role restricted to production and the CMS folder when the plan permits it.
+4. Confirm Universal Auth is configured.
+5. Retrieve the existing client ID and client secret from their protected credential store.
+   If no client secret exists, create one.
+   The Universal Auth client ID differs from the machine identity ID.
+6. When IP allowlisting is available, restrict client secret use to the VPS public IP as a `/32`.
+   Apply the same restriction to issued access tokens.
+   This optional paid feature is not required for deployment.
+7. Store the client ID and client secret in the team password manager.
+   Keep them separate from the Dokploy API credential.
 
 Create a dedicated folder such as `prod:/cms`. At minimum, provide stable and
 production-safe values for:
@@ -69,21 +70,36 @@ inside a running or replacement production container.
 
 ## Authenticate at container startup
 
-Install the Infisical CLI in the PHP runtime image. Disable its update check so
-container startup remains quiet and deterministic:
+Install a pinned Infisical CLI release in the PHP runtime image.
+The former Cloudsmith package repository stopped serving the CLI on September 16, 2026.
+Use the [current installation instructions](https://infisical.com/docs/cli/install) or an official release archive.
+
+For an Alpine image, set the version and architecture-specific checksum through build arguments.
+Get both values from the [official CLI release](https://github.com/Infisical/cli/releases).
+Pin them in the project's build configuration.
 
 ```dockerfile
-RUN apk add --no-cache bash curl \
-    && curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.alpine.sh' | bash \
-    && apk add --no-cache infisical
+ARG TARGETARCH
+ARG INFISICAL_CLI_VERSION
+ARG INFISICAL_CLI_SHA256
+
+RUN apk add --no-cache curl \
+    && test -n "$INFISICAL_CLI_VERSION" \
+    && test -n "$INFISICAL_CLI_SHA256" \
+    && curl -fsSL "https://github.com/Infisical/cli/releases/download/v${INFISICAL_CLI_VERSION}/cli_${INFISICAL_CLI_VERSION}_linux_${TARGETARCH}.tar.gz" \
+        -o /tmp/infisical.tar.gz \
+    && printf '%s  /tmp/infisical.tar.gz\n' "$INFISICAL_CLI_SHA256" | sha256sum -c - \
+    && tar -xzf /tmp/infisical.tar.gz -C /usr/local/bin infisical \
+    && chmod 755 /usr/local/bin/infisical \
+    && rm /tmp/infisical.tar.gz
 
 ENV INFISICAL_DISABLE_UPDATE_CHECK=true
 ```
 
-Use an entrypoint that fails when required bootstrap values are missing,
-exchanges Universal Auth credentials for a short-lived token, removes the
-client credentials from the child-process environment, and starts Statamic
-through `infisical run`:
+Use an entrypoint that rejects missing bootstrap credentials.
+Exchange Universal Auth credentials for an access token.
+Remove authentication credentials from the application environment.
+Fetch the selected secrets before calling the Statamic startup script:
 
 ```sh
 #!/bin/sh
@@ -96,8 +112,8 @@ set -eu
 INFISICAL_ENVIRONMENT="${INFISICAL_ENVIRONMENT:-prod}"
 INFISICAL_SECRET_PATH="${INFISICAL_SECRET_PATH:-/cms}"
 INFISICAL_DOMAIN="${INFISICAL_DOMAIN:-https://app.infisical.com/api}"
+export INFISICAL_DOMAIN
 
-export INFISICAL_TOKEN
 INFISICAL_TOKEN="$(
     infisical login \
         --method=universal-auth \
@@ -106,6 +122,8 @@ INFISICAL_TOKEN="$(
         --plain \
         --silent
 )"
+: "${INFISICAL_TOKEN:?Infisical authentication returned no token}"
+export INFISICAL_TOKEN
 
 unset INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
 
@@ -115,13 +133,13 @@ exec infisical run \
     --path="$INFISICAL_SECRET_PATH" \
     --silent \
     -- \
+    env -u INFISICAL_TOKEN -u INFISICAL_CLIENT_ID -u INFISICAL_CLIENT_SECRET \
     /var/www/html/docker-start.sh "$@"
 ```
 
-The final startup script should prepare writable directories, clear stale
-Laravel configuration and view caches, warm Statamic's Stache, and then `exec`
-PHP-FPM. Never print the injected environment or enable shell tracing in these
-scripts.
+Replace the example startup path with the project's existing Statamic startup script.
+That script prepares writable directories, clears Laravel caches, refreshes Statamic's Stache, and starts PHP-FPM.
+Keep secret values out of command output. Keep shell tracing disabled.
 
 ## Map only bootstrap values in Compose
 
@@ -155,6 +173,28 @@ Do not put `APP_KEY`, GraphQL tokens, provider credentials, or other Statamic
 runtime values in Dokploy. Dokploy writes its Compose environment beside the
 Compose file and protects the bootstrap credential only as well as the Dokploy
 installation and its backups are protected.
+
+An agent runner's token service does not supply these values to the CMS container automatically.
+Configure bootstrap access in the CMS service's Environment tab, even when its identity already works on another server.
+
+## Migrate an existing deployment
+
+1. Confirm the CMS server and Dokploy Compose service.
+2. Move the existing production application settings into the selected Infisical folder.
+3. Preserve the existing `APP_KEY` and GraphQL token.
+4. Verify the identity can fetch that folder without printing values.
+5. Add the bootstrap settings in **CMS → Environment**.
+6. Save the settings.
+7. Deploy the updated image and Compose configuration.
+8. Complete the [deployment checks](#verify-the-deployment).
+9. After verification passes, remove the old application values from Dokploy.
+10. Redeploy with only bootstrap settings.
+11. Repeat the deployment checks.
+
+Saving environment settings does not replace running containers.
+Retain the existing named volumes during migration.
+If startup fails, restore the previous deployment image and its verified environment.
+Use [Worker sync and build setup](environment-variables-with-infisical.md#cloudflare-workers-and-hosted-builds) for a Cloudflare frontend.
 
 ## Serve assets and trust the HTTPS proxy
 
@@ -280,6 +320,7 @@ Perform these checks without printing secret values:
    endpoints to catch forwarded-scheme errors.
 6. Send an authenticated GraphQL probe when GraphQL is enabled. Confirm the
    unauthenticated behavior matches the intended policy.
+   Use the frontend's HTTPS endpoint and HTTP client for the probe.
 7. Restart both services and, separately, redeploy from a clean image to verify
    volume recovery and backups.
 
@@ -298,6 +339,6 @@ This order avoids making the CMS unavailable during rotation.
 ## References
 
 - [Infisical Universal Auth](https://infisical.com/docs/documentation/platform/identities/universal-auth)
-- [Infisical CLI `run`](https://infisical.com/docs/cli/commands/run)
+- [Infisical CLI reference](https://infisical.com/docs/cli/reference)
 - [Dokploy Docker Compose environment](https://docs.dokploy.com/docs/core/docker-compose#environment)
 - [Laravel trusted proxies](https://laravel.com/docs/13.x/requests#configuring-trusted-proxies)

@@ -8,7 +8,7 @@ This guide describes reusable setup steps.
 Keep exact variable names, release requirements, and commands in the project's maintained configuration and runbook.
 All names, paths, and identifiers below are examples.
 Keep real credentials and private infrastructure details outside this public repository.
-Reviewed against the linked official documentation on 2026-10-13.
+Reviewed against the linked official documentation on 2026-10-14.
 
 ## Structure and access
 
@@ -48,7 +48,9 @@ Use separate projects when one identity must not read another set of credentials
 Use scoped roles or privileges when the selected plan supports them.
 See [Infisical access controls](https://infisical.com/docs/documentation/platform/access-controls/role-based-access-controls).
 
-Create an organization machine identity when one server needs several projects.
+Use an organization machine identity when one server needs several projects.
+Check existing identities before creating another one.
+If its project grants match the workload's requirements, reuse the existing identity.
 Give it **No Access** at organization level.
 Add it to each required project with read access.
 You can add another project later without creating another identity or client secret.
@@ -319,6 +321,8 @@ Replacing a token file does not update an existing process environment.
 
 Do not assume an interactive shell file configures an agent service.
 Check the service's Unix user, `PATH`, working directory, and bootstrap access.
+The runner's authentication does not automatically configure Docker containers or hosted builds.
+Configure each consuming service's bootstrap access explicitly.
 
 For a containerized Statamic deployment, use the [Dokploy runbook](statamic-infisical-dokploy.md).
 
@@ -346,18 +350,78 @@ Installing a CLI does not give it the signing or publishing credentials needed t
 
 ## Cloudflare Workers and hosted builds
 
-Local injection does not change deployed Worker secrets.
-Keep production values in the project's Wrangler or deployment workflow.
-An explicit [Infisical Worker sync](https://infisical.com/docs/integrations/secret-syncs/cloudflare-workers) is a separate integration.
-Check its direction, permissions, and deletion behavior before enabling it.
+Worker runtime bindings and Workers Builds use separate environments.
+Secret sync supplies runtime bindings. It does not supply build variables.
+With Infisical as the editing location, configure runtime sync and build-time fetching separately.
+Cloudflare retains the synced runtime copies.
+Local injection does not configure either Cloudflare environment.
+
+### Worker runtime sync
+
+Fill the production source folder before creating the sync.
+Use HTTPS for API endpoints. Keep application tokens consistent with their receiving services.
+Keep machine bootstrap credentials outside the synced application folder.
+
+1. Configure a [Cloudflare app connection](https://infisical.com/docs/integrations/app-connections/cloudflare) for the target project.
+2. Open **Integrations → Secret Syncs → Add Sync → Cloudflare Workers**.
+3. Select the production environment and application folder, such as `prod:/web`.
+4. Select the connection and destination Worker.
+5. Apply the initial options below.
+6. Create the sync.
+7. Run a manual sync.
+8. Verify its status and the application's authenticated runtime requests.
+9. After manual verification passes, enable automatic sync.
+
+| Option                            | Initial setting                           |
+| --------------------------------- | ----------------------------------------- |
+| Prevent secret deletion           | On                                        |
+| Auto-sync on changes              | Off until manual verification passes      |
+| Customize key names               | Off when application names already match  |
+| Sync plaintext and JSON variables | Off when only secret bindings are managed |
+
+Preventing deletion does not prevent empty source values from replacing working destination values.
+A project-scoped connection cannot be reused by another project.
+Use a connection available to the target project.
+See [Infisical Worker sync](https://infisical.com/docs/integrations/secret-syncs/cloudflare-workers) for provider requirements and sync options.
 
 For local Workers, review Wrangler's required secret names and process environment support.
 Existing `.dev.vars` files can affect loading.
 See [Cloudflare local environment variables](https://developers.cloudflare.com/workers/local-development/environment-variables/).
 
-A hosted build can use platform-provided environment variables without a second Infisical login.
-Keep an explicit build script for that path.
-Check the configured dashboard or CI command when changing local package scripts.
+### Workers Builds
+
+Use a production build script that authenticates before fetching the selected Infisical environment and folder.
+Install a pinned CLI release in the build environment or through that script.
+Remove authentication credentials before starting the application build.
+Private build credentials do not come from the Worker's synced runtime secrets.
+
+For a wrapper that maps generic Universal Auth variables, configure:
+
+| Build setting             | Value                                        |
+| ------------------------- | -------------------------------------------- |
+| `INFISICAL_CLIENT_ID`     | Existing identity's Universal Auth client ID |
+| `INFISICAL_CLIENT_SECRET` | Its client secret, stored as a build Secret  |
+| `INFISICAL_PROJECT_ID`    | Target Infisical project ID                  |
+
+The wrapper must perform the login. These generic names do not authenticate the native CLI automatically.
+Use the repository's declared variable names when its authentication method differs.
+
+1. Open **Worker → Settings → Builds → Variables and secrets**.
+2. Add the selected machine identity's bootstrap settings.
+3. Set the build command to the repository's Infisical production build script.
+4. Confirm the build root matches that script's project selection.
+5. Run the build and deployment.
+6. Verify the deployed application.
+7. After verification passes, remove duplicated application values from build settings.
+
+Retain the bootstrap settings and synced Worker runtime secrets.
+After application values change, rebuild pages that embed those values.
+Runtime sync alone does not change a prerendered browser bundle.
+See [Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/).
+
+A build using platform-provided application values can keep its existing command during migration.
+If Infisical authentication or fetching fails, stop the migrated build.
+For recovery, restore the previous build command and its verified application values.
 Do not upload development values automatically.
 
 ## Verification, changes, and recovery

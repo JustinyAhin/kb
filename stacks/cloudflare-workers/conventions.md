@@ -32,6 +32,6 @@ let the user set the values.
 ## Related runbooks
 
 - [Optional environment setup with Varlock and 1Password](../../operations/environment-variables-with-varlock-and-1password.md)
+- [Infisical Worker sync and build setup](../../operations/environment-variables-with-infisical.md#cloudflare-workers-and-hosted-builds)
 - [D1 + Drizzle + Atlas](d1-drizzle-atlas.md)
 - [Cloudflare Workers logs](../../operations/cloudflare-workers-logs.md)
-

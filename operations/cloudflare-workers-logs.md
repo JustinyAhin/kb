@@ -47,6 +47,35 @@ node -e "console.log(Date.parse('2026-07-15T05:00:00Z'))"
 
 After every query, verify that `run.timeframe.from` and `run.timeframe.to` match the requested values. Cloudflare can clamp a query at the retention boundary instead of returning an explicit error. Also inspect `sampleInterval`; a value greater than `1` means the result was sampled.
 
+## One-off query workflow
+
+Use an inline query for a single check. It saves nothing, so it needs no cleanup:
+
+```bash
+cf observability telemetry query --body '{
+  "queryId": "tmp-worker-debug",
+  "view": "events",
+  "limit": 100,
+  "dry": true,
+  "timeframe": { "from": <from-ms>, "to": <to-ms> },
+  "parameters": {
+    "filterCombination": "and",
+    "filters": [
+      {
+        "key": "$workers.scriptName",
+        "operation": "eq",
+        "type": "string",
+        "value": "<worker-name>"
+      }
+    ]
+  }
+}'
+```
+
+Read `events.events[]`. Each event has `timestamp`, `$workers.event.request`, `$workers.event.response.status` and `$metadata`. The response can omit `sampleInterval`. In that case, the response does not show whether Cloudflare sampled the result.
+
+On 2026-11-17, with `cf` v0.6.0, `cf observability queries create` returned HTTP 400 with no reason, while this inline query worked. Use the inline query first.
+
 ## Historical query workflow
 
 For repeated comparisons, create a temporary saved query, pass its `id` to

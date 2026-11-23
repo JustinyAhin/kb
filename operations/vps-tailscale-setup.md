@@ -1,11 +1,16 @@
 # Ubuntu VPS setup with Tailscale SSH
 
-Use this runbook for a fresh Ubuntu 24.04 LTS or newer VPS. It sets up private
-administration through Tailscale SSH, then blocks public SSH with UFW. Public
-application ports stay closed unless you open them later.
+Use this runbook for a fresh Ubuntu 24.04 LTS or newer VPS. It also applies to
+Debian 13 (trixie). It sets up private administration through Tailscale SSH,
+then blocks public SSH with UFW. Public application ports stay closed unless
+you open them later.
 
-Reviewed against the linked upstream documentation on 2026-10-10. All names,
+Reviewed against the linked upstream documentation on 2026-10-10. Debian 13,
+netcup, base hardening, and SSH action notes added on 2026-11-23. All names,
 addresses, and identities below are examples. Replace them before use.
+
+For the tools and logins of a new development machine, see
+[New machine bootstrap](new-machine-bootstrap.md).
 
 A VPS is a virtual private server. A tailnet is your private Tailscale network.
 UFW is Ubuntu's firewall management tool. MagicDNS resolves Tailscale device names.
@@ -64,6 +69,31 @@ sudo usermod -aG sudo admin
 If you use another existing account, replace `admin` in both the commands and
 the SSH policy below. Tailscale SSH does not create Linux accounts.
 
+A minimal Debian image can have only `root`, with no `sudo` and no `ufw`. The
+package command above installs both. Store the `sudo` password of the new
+account in your password manager. To set it without showing it, pipe it into
+`chpasswd` from the password manager.
+
+### Bootstrap SSH key from 1Password
+
+If the 1Password SSH agent supplies your keys, it offers only the items in
+`~/.config/1Password/ssh/agent.toml`. After you create a new SSH Key item, add
+an entry for it, then check that `ssh-add -L` lists the key:
+
+```toml
+[[ssh-keys]]
+item = "SSH – example-server"
+vault = "Personal"
+```
+
+The entry uses the item title. If you rename the item, change the entry at the
+same time. The 1Password CLI cannot edit or rename SSH Key items: use the app.
+
+Without the entry, the server rejects each offered key. After several rejected
+attempts, OpenSSH 9.8 and newer blocks the client address for a period
+(`PerSourcePenalties`). The log shows `penalty: failed authentication`. Wait
+for the block to expire, or connect through Tailscale.
+
 ## 2. Add narrow tailnet access rules
 
 Open **Access controls** in the Tailscale admin console. Merge these entries
@@ -105,6 +135,36 @@ their user's identity. Use this tag only on servers that need these rules.
 See [server setup](https://tailscale.com/docs/how-to/set-up-servers) and
 [tags](https://tailscale.com/docs/features/tags).
 
+### Choose `check` or `accept`
+
+`check` asks for a browser sign-in again after each `checkPeriod`. A person at
+a terminal sees the link. A background client does not see it. For example,
+a terminal multiplexer that reconnects through the system `ssh` fails until
+you reconnect by hand. The tailscaled log on the server then shows repeated
+`error sending auth welcome message: EOF` lines.
+
+Use `accept` when background clients must reconnect without a prompt:
+
+```json
+{
+  "action": "accept",
+  "src": ["admin@example.com"],
+  "dst": ["tag:managed-vps"],
+  "users": ["admin"]
+}
+```
+
+With `accept`, any device that is signed in as the operator can open SSH
+without a second prompt. Keep `src` narrow. To limit the rule to some devices,
+limit the network grant: put device addresses in `hosts` and use those host
+names in the grant `src`. SSH rules accept users, groups, and tags, not hosts.
+
+### Use one tag for each login model
+
+Rules attach to tags. If one tag permits `root` for older servers, a new server
+with that tag also permits `root`. Give a server that uses a non-root account
+its own tag, grant, and SSH rule. Do not add its user to a shared rule.
+
 Review existing ACLs, grants, and SSH rules too. Rules are additive: a narrow
 new rule does not cancel an existing broad rule. Check the merged policy in
 the policy editor, including intended access and access that must be denied.
@@ -139,6 +199,27 @@ tailscale ip -4
 
 Enabling this feature can interrupt existing SSH connections to the server's
 Tailscale address. The public-address bootstrap session is separate.
+
+Turn on automatic Tailscale updates. Unattended upgrades do not cover the
+Tailscale package source by default:
+
+```bash
+sudo tailscale set --auto-update
+```
+
+### Change the tag of an enrolled server
+
+You can change the tags of a device in the admin console (**Machines** →
+device → **Edit ACL tags**). The device keeps its old advertised tags in its
+local preferences. A later `tailscale up` or a new sign-in can restore the old
+tag and its rules. After a tag change in the console, set the same tag on the
+server. `tailscale set` has no `--advertise-tags` flag, so use `tailscale up`
+with all flags that you used before:
+
+```bash
+sudo tailscale up --hostname=runner-1 --ssh --advertise-tags=tag:new-tag
+sudo tailscale debug prefs | grep -A2 AdvertiseTags
+```
 
 ## 4. Test a new private connection
 
@@ -308,6 +389,90 @@ Traffic from a container to the server's own public address does not leave
 the server. The provider firewall does not block it. Do not use this path as
 an access method. See [Dokploy private services](dokploy-private-services.md).
 
+### netcup firewall
+
+netcup manages its firewall in the Server Control Panel (SCP), under
+**Firewall Policies** and the server's **Firewall** tab. It differs from the
+Hetzner firewall in two ways:
+
+- It is stateful for TCP only. It does not track UDP. It drops the reply to an
+  outbound UDP request unless an incoming rule accepts that reply.
+- The implicit rules at the end are **Accept all**. When a policy with your own
+  incoming rule is attached and saved, the implicit incoming rule changes to
+  **DROP**. The default policies `netcup Mail block` and `netcup Ping allow` do
+  not cause this change.
+
+Create one policy for each rule, then attach the policies to the interface and
+save. The policy form copies a new rule row from the previous row, so set one
+rule for each policy. The server view shows ports as server side, then remote
+side. Check each rule in the policy editor, which shows source and destination
+ports in separate columns.
+
+| Policy rule | Why |
+| --- | --- |
+| INGRESS, UDP, destination port `41641`, ACCEPT | Direct Tailscale connections |
+| INGRESS, UDP, source port `123`, ACCEPT | NTP replies, so the clock stays correct |
+| INGRESS, UDP, source port `53`, ACCEPT | DNS replies for resolvers other than netcup's |
+
+DNS to the netcup resolvers is always allowed. Tailscale MagicDNS forwards to
+them, so the host works without the DNS rule. Add the DNS rule before you
+install Docker, `cloudflared`, or another tool with its own resolver. QUIC and
+HTTP/3 also use UDP: see [Cloudflare Tunnel](cloudflare-tunnel.md).
+
+Keep `netcup Ping allow`. IPv6 needs ICMPv6 for neighbor discovery and path
+MTU. Keep `netcup Mail block` unless you need outbound mail.
+
+UFW on the host is stateful. It still drops unsolicited packets that these
+provider rules accept.
+
+`tailscale netcheck` can show `UDP: false` after this change. The command tests
+from random local ports, which the firewall drops. Check the real path with
+`tailscale ping <server>` from a client: it must show a direct address, not
+`DERP`.
+
+See the [netcup firewall documentation](https://www.netcup.com/en/helpcenter/documentation/server/firewall).
+
+## 9. Harden the base system
+
+Do these steps after the private connection works.
+
+Turn off SSH password login and X11 forwarding with a drop-in file:
+
+```bash
+sudo tee /etc/ssh/sshd_config.d/10-hardening.conf >/dev/null <<'EOF'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+X11Forwarding no
+EOF
+sudo sshd -t && sudo systemctl reload ssh
+sudo sshd -T | grep -E '^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin|x11forwarding) '
+```
+
+Turn on automatic security updates:
+
+```bash
+sudo apt install -y unattended-upgrades apt-listchanges
+echo 'unattended-upgrades unattended-upgrades/enable_auto_updates boolean true' | sudo debconf-set-selections
+sudo dpkg-reconfigure -f noninteractive unattended-upgrades
+```
+
+The default origins are the distribution only. Packages from other sources,
+such as Tailscale, need their own update path. Decide if the server may reboot
+by itself (`Unattended-Upgrade::Automatic-Reboot`).
+
+Add a swap file if the image has none. Example for 4 GB:
+
+```bash
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swap.conf
+sudo sysctl -p /etc/sysctl.d/99-swap.conf
+```
+
 ## Docker and application ports
 
 Docker published ports can bypass UFW. A mapping such as `8080:80` can expose a
@@ -361,7 +526,12 @@ Tailscale SSH identity checks and is not required for this default setup.
 
 ## Recovery
 
-Use the provider console if Tailscale access fails. To undo the UFW change:
+Use the provider console if Tailscale access fails. On netcup, use the SCP
+**Screen** tab. Sign in as `root` with the password from the provider's
+welcome email; keep that password in your password manager. The provider
+firewall can also be changed in SCP without access to the server.
+
+To undo the UFW change:
 
 ```bash
 sudo ufw disable

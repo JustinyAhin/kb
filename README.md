@@ -10,6 +10,7 @@ Short runbooks and notes for everyday engineering work.
 - [Documentation ownership](engineering/documentation.md)
 - [SvelteKit conventions](stacks/sveltekit/conventions.md)
 - [Cloudflare Workers conventions](stacks/cloudflare-workers/conventions.md)
+- [New SvelteKit project on Workers](stacks/sveltekit/new-project.md)
 
 ## Engineering
 
@@ -23,9 +24,12 @@ Short runbooks and notes for everyday engineering work.
 ## Stacks
 
 - [SvelteKit conventions](stacks/sveltekit/conventions.md)
+- [New SvelteKit project on Cloudflare Workers](stacks/sveltekit/new-project.md)
 - [SvelteKit environment variables with Varlock and 1Password](stacks/sveltekit/environment-variables-with-varlock-and-1password.md)
 - [Cloudflare Workers conventions](stacks/cloudflare-workers/conventions.md)
+- [Deploy a SvelteKit app to Cloudflare Workers](stacks/cloudflare-workers/deploy.md)
 - [D1 + Drizzle + Atlas](stacks/cloudflare-workers/d1-drizzle-atlas.md)
+- [Statamic as a headless CMS for SvelteKit](stacks/statamic/headless-cms.md)
 
 ## Operations
 
@@ -37,6 +41,7 @@ Short runbooks and notes for everyday engineering work.
 - [instabox development box](operations/instabox-dev-box.md)
 - [Cloudflare Tunnel for public web traffic (plan)](operations/cloudflare-tunnel.md)
 - [Cloudflare Workers logs](operations/cloudflare-workers-logs.md)
+- [Deploy an app to Dokploy](operations/dokploy-deploy.md)
 - [Dokploy volume backups](operations/dokploy-volume-backups.md)
 - [Dokploy private services](operations/dokploy-private-services.md)
 - [PostHog MCP](operations/posthog-mcp.md)

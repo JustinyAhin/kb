@@ -31,6 +31,8 @@ let the user set the values.
 
 ## Related runbooks
 
+- [New SvelteKit project on Cloudflare Workers](../sveltekit/new-project.md)
+- [Deploy a SvelteKit app to Cloudflare Workers](deploy.md)
 - [Optional environment setup with Varlock and 1Password](../../operations/environment-variables-with-varlock-and-1password.md)
 - [Infisical Worker sync and build setup](../../operations/environment-variables-with-infisical.md#cloudflare-workers-and-hosted-builds)
 - [D1 + Drizzle + Atlas](d1-drizzle-atlas.md)

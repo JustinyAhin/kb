@@ -6,7 +6,8 @@ experimental features before applying a rule.
 
 ## Baseline stack
 
-- SvelteKit 2, commonly with Svelte 5 runes.
+- SvelteKit 2 or 3, with Svelte 5 runes. New projects use SvelteKit 3.
+  See [New SvelteKit project on Cloudflare Workers](new-project.md).
 - TypeScript in strict mode where the project enables it.
 - Tailwind CSS and, where already installed, shadcn-svelte.
 - Bun is common in these repositories; use the package manager already declared

@@ -10,6 +10,14 @@ Reviewed against the linked official documentation on 2026-10-12.
 All project names, paths, variable names, and identifiers below are examples.
 Keep real account details and values outside this public repository.
 
+Status on 2026-11-23: no server uses the service-account path of this runbook.
+The service account for shared CLI credentials is revoked. On servers, use
+[Infisical](environment-variables-with-infisical.md) or a user-only env file
+written from 1Password (see [New machine bootstrap](new-machine-bootstrap.md)).
+`naps-cli` now loads its runtime keys from Infisical. The Mac path with desktop
+authentication still works. For item layout, see
+[1Password conventions](1password-conventions.md).
+
 ## Terms and access boundaries
 
 | Term | Purpose |

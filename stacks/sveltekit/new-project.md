@@ -156,6 +156,38 @@ const config = defineConfig(({ command }) => {
 });
 ```
 
+### `www` to apex redirect on a prerendered site
+
+SvelteKit hooks do not run for prerendered pages. Put the `www` to apex 301 in a Worker entry file.
+Use the entry file, not `_redirects`, when the redirect must be a 301 and not a 308.
+
+1. Give the adapter its own config. It then writes its worker to `.svelte-kit/cloudflare/_worker.js` and does not overwrite the entry file:
+
+   ```ts
+   const cloudflare = adapter({ config: "wrangler.adapter.toml" });
+   ```
+
+2. In `wrangler.adapter.toml`, keep `name`, the compatibility settings, and the bindings the same as `wrangler.toml`. Set `main = ".svelte-kit/cloudflare/_worker.js"` and the same `[assets]` block.
+3. In `wrangler.toml`, set `main = "src/worker.ts"` and add `run_worker_first = true` under `[assets]`. Add a route for `example.com` and for `www.example.com`.
+4. Write `src/worker.ts`:
+
+   ```ts
+   import sveltekit from "../.svelte-kit/cloudflare/_worker.js";
+
+   const app = sveltekit as { fetch: ExportedHandlerFetchHandler<Env> };
+
+   export default {
+     fetch: (request, env, ctx) => {
+       const url = new URL(request.url);
+       if (url.hostname === "www.example.com") {
+         url.hostname = "example.com";
+         return Response.redirect(url.toString(), 301);
+       }
+       return app.fetch(request, env, ctx);
+     },
+   } satisfies ExportedHandler<Env>;
+   ```
+
 ## 7. Add D1 (optional)
 
 1. Create the database with `bunx wrangler d1 create example-app`.

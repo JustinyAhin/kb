@@ -45,6 +45,7 @@ Short runbooks and notes for everyday engineering work.
 - [Dokploy volume backups](operations/dokploy-volume-backups.md)
 - [Dokploy private services](operations/dokploy-private-services.md)
 - [PostHog MCP](operations/posthog-mcp.md)
+- [Google Search Console](operations/search-console.md)
 - [Statamic with Infisical on Dokploy](operations/statamic-infisical-dokploy.md)
 
 ## Tools

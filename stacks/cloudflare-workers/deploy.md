@@ -51,6 +51,17 @@ routes = [{ pattern = "example.com", custom_domain = true }]
 The zone must be in the same Cloudflare account.
 To attach a domain without a deploy, open the Worker and select **Settings → Domains & Routes → Add**.
 
+## Expired domain as a redirect
+
+Before you build a Worker with a path map, check where the backlinks of the old domain point.
+When all point at the home page, you do not need a Worker:
+
+1. Add proxied placeholder DNS records for the apex and `www`: `AAAA 100::`.
+2. Add one Cloudflare Single Redirect rule: all incoming requests, static target `https://example.com/`, status 301.
+
+The Free plan has 10 such rules for each zone.
+Use a Worker only when old paths must go to different new paths.
+
 ## D1 migrations
 
 Apply additive migrations before the deploy:

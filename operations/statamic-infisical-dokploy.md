@@ -236,6 +236,9 @@ trusted or `APP_URL` is wrong.
 In Dokploy, attach the public hostname to the Caddy service on container port
 `80`, enable HTTPS, and use the Let's Encrypt certificate resolver.
 
+For the CMS host, make an A record to the server IP (`cms.example.com A <server-ip>`), proxied by Cloudflare.
+Do not make a CNAME to the server hostname.
+
 ## Choose a Statamic persistence model
 
 Named volumes for `storage` and an SQLite `database` do not preserve everything

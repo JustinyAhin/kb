@@ -27,6 +27,7 @@ For volumes and private services, see [Dokploy volume backups](dokploy-volume-ba
 Expected result: the host answers over HTTPS with a valid certificate, and each push to a watched path deploys.
 
 - A watch path with a leading slash never matches. GitHub sends paths without it. After you fix the path, redeliver the webhook in GitHub to test.
+- Dokploy before v0.30.0 compares the watch paths only with the modified files of a push. A push that only adds, deletes, or renames files starts no deploy. A new CMS entry is such a push. Fix: [upgrade Dokploy](#upgrade-dokploy) to v0.30.0 or later. Workaround: empty the watch paths, or start the deploy through the API.
 - Put values on the service **Environment** tab, not the project shared environment. Save before you deploy. A missed save gives "dependency failed to start".
 - Saving the environment does not restart containers. Deploy again.
 - Traefik can show its default certificate for a short time after you add a domain. Wait, then check again.
@@ -74,11 +75,60 @@ If you deploy a moving tag such as `:main`, add `pull_policy: always` to the ser
 }
 ```
 
+## Read logs and API output safely
+
+Dokploy logs (`docker service logs dokploy`) and API responses contain the service environment. Some values are also in base64 text.
+Never print raw logs or raw API responses in an agent session.
+Filter to named fields with `jq`, or to matching words with `grep -o`:
+
+```sh
+curl -fsS -H "x-api-key: $DOKPLOY_API_KEY" "https://dokploy.example.com/api/compose.one?composeId=<compose-id>" \
+  | jq '{name, composeStatus}'
+docker service logs dokploy --since 10m 2>&1 | grep -o 'Deployment [a-z]*'
+```
+
+## Upgrade Dokploy
+
+This method worked from v0.29.12 to v0.31.4.
+The dashboard was down for about 1 minute. No app container restarted.
+In update mode, the script only pulls the image and runs `docker service update --image`. The new container runs the database migrations at start.
+
+1. Check each domain on the server. Record the HTTP status of each.
+2. Back up the Dokploy database:
+
+   ```sh
+   docker exec <dokploy-postgres-container> pg_dump -Fc -U dokploy dokploy > dokploy-db.dump
+   ```
+
+3. Copy the Traefik config: `tar -czf etc-dokploy-traefik.tar.gz /etc/dokploy/traefik`.
+4. Record the current image digest for a rollback:
+
+   ```sh
+   docker service inspect dokploy --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' > dokploy-image-before.txt
+   ```
+
+5. Download the `install.sh` of the target release. Check its checksum. Run it in update mode with the version pinned:
+
+   ```sh
+   DOKPLOY_VERSION=<version> sh install.sh update
+   ```
+
+6. Check each domain again. Compare the statuses with step 1.
+
+The migrations have no down step. A rollback must also restore the database:
+
+1. `docker service scale dokploy=0`
+2. `docker exec -i <dokploy-postgres-container> pg_restore -U dokploy -d dokploy --clean --if-exists < dokploy-db.dump`
+3. `docker service update --image <recorded image@digest> dokploy`, then `docker service scale dokploy=1`.
+
+The backup holds secrets, for example the database and `acme.json`. Delete it when you no longer need a rollback.
+
 ## Troubleshooting
 
 | Symptom                                   | Cause and fix                                                                                                                               |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Push does not deploy                      | The watch path has a leading slash, or Autodeploy is off. Fix it, then redeliver the webhook.                                               |
+| Push that adds a file does not deploy     | Dokploy before v0.30.0 checks only modified files against watch paths. Upgrade Dokploy.                                                     |
 | "Done" but the old version runs           | A moving tag used the local image. Add `pull_policy: always` or deploy SHA tags.                                                            |
 | "dependency failed to start"              | A value is missing on the service Environment tab, or it was not saved before the deploy.                                                   |
 | Build fails with `denied: denied` on GHCR | The saved registry token expired. Make a classic PAT with `write:packages`. Update **Settings → Registry**, select **Test**, then redeploy. |

@@ -62,7 +62,7 @@ Required details:
 
 - PHP 8.5 includes OPcache. Do not install it as an extension.
 - Copy the complete `public` tree into the Caddy image, after `vendor:publish --tag=statamic-cp`.
-- Use `docker/start.sh` as the entrypoint. It stops when `APP_KEY` is empty, then clears caches, links storage, and runs `statamic:stache:refresh`.
+- Use `docker/start.sh` as the entrypoint. It stops when `APP_KEY` is empty, then clears caches, links storage, and runs `php please stache:refresh`. The command `php please statamic:stache:refresh` fails, and the first deploy fails with it.
 - Set `clear_env = no` in the PHP-FPM pool. PHP then sees the container environment.
 - In `bootstrap/app.php`, call `$middleware->trustProxies(at: '*')`. Statamic then builds `https://` URLs behind Dokploy.
 - In the Caddyfile, send `X-Robots-Tag: noindex` on every path except `/assets/*`. Only the web app must appear in search.
@@ -71,8 +71,45 @@ Required details:
 ## 5. Choose who owns content
 
 When Git owns `content/`, do not mount a volume on `content/`.
-A volume hides the content in the new image. Use `statamic:stache:refresh`, not `stache:warm`.
+A volume hides the content in the new image. Use `php please stache:refresh`, not `stache:warm`.
+Edit content in Git only. The next deploy deletes control panel edits on the server.
 For the other model, see [Choose a Statamic persistence model](../../operations/statamic-infisical-dokploy.md#choose-a-statamic-persistence-model).
+
+## 6. Make the first production user
+
+Use one address for each site, for example `me+<site>@example.com`. Do not use a personal address.
+Make the user with no known password. Then set the password so that no person or agent sees it.
+
+1. After the first deploy, make the password in 1Password. Print only the item ID:
+
+   ```sh
+   op item create --category login --vault <vault> --title "<site> CMS" \
+     --generate-password=letters,digits,symbols,32 username=me+<site>@example.com \
+     --format json | jq -r .id
+   ```
+
+2. Copy a small PHP script into the PHP container. It boots Laravel, reads the password from stdin, and saves it:
+
+   ```php
+   <?php
+   require __DIR__.'/vendor/autoload.php';
+   $app = require __DIR__.'/bootstrap/app.php';
+   $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+   $p = rtrim(stream_get_contents(STDIN), "\n");
+   Statamic\Facades\User::findByEmail('me+<site>@example.com')->password($p)->save();
+   ```
+
+3. Send the password over SSH into the container:
+
+   ```sh
+   op read "op://<vault>/<item-id>/password" \
+     | ssh root@<server-ip> docker exec -i <cms-app-container> php /var/www/html/set-password.php
+   ```
+
+4. Check it the same way. Use a second script that prints only the result of `Hash::check($p, $user->password())`.
+5. Delete both scripts from the container.
+
+A named volume holds `users/`, so a redeploy keeps the user.
 
 ## Verify
 

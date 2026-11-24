@@ -50,6 +50,7 @@ Short runbooks and notes for everyday engineering work.
 
 ## Tools
 
+- [Voice Interview Lab](tools/voice-interview-lab.md)
 - [Codex subagents and model routing](tools/codex.md)
 - [Annotating product screenshots and recordings](tools/product-demo-annotations.md)
 - [Tailwind IntelliSense diagnostics](tools/tailwind-intellisense.md)

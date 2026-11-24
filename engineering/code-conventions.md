@@ -9,6 +9,8 @@ The most repeated convention across the projects is:
 - When a function has multiple parameters, accept one named object argument.
 - Keep reusable types in `types.ts`; keep a type local when it has one consumer.
 - Define implementation symbols first and export them at the end of the file.
+- Separate logical blocks with blank lines.
+- Expand dense statements and object definitions when this makes the code easier to read.
 
 SvelteKit route exports (`load`, `entries`, `prerender`, and similar framework
 hooks) are the intentional exception: use the direct `export const` form the

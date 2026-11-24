@@ -221,7 +221,8 @@ A short opening segment enters synthesis after at least eight complete words and
 The rest of the answer follows through the same connection.
 The final text fragment is flushed when OpenAI finishes.
 PCM chunks are scheduled as they arrive, without MP3 decoding or whole-file waiting.
-Semantic turn detection uses medium eagerness for both agents.
+The first streaming version used medium eagerness for both agents.
+The later latency pass uses high for the candidate and medium for the interviewer.
 Keep the existing voice clone and compare normal speech samples by listening.
 Measure the first meaningful answer, not a filler used to occupy the delay.
 Hono changes routing structure. It does not remove speech-generation or playback buffering delays.
@@ -276,6 +277,86 @@ Requests for the secret file and server source returned HTTP 404.
 The speech endpoint rejected a foreign origin and a missing candidate session with HTTP 403.
 No unit tests were added.
 
+### Reasoning and turn detection — 24 November 2026
+
+The response model remains `gpt-realtime-2.1` and the clone uses `eleven_v4_turbo`.
+Reasoning effort is now explicitly `minimal`.
+Candidate semantic VAD uses `high`; the interviewer remains at `medium`.
+All settings are constants in `src/shared/voice-config.ts`.
+Startup and session-creation logs show reasoning effort and turn eagerness.
+See [Realtime reasoning effort](https://developers.openai.com/api/docs/guides/voice-prompting?voice-api=realtime) and [turn detection](https://developers.openai.com/api/docs/guides/realtime-vad).
+
+The original timing started after the speech-stop event, which excluded turn detection.
+The page now estimates the full gap from the end of input audio to the first audible reply sample.
+A small AudioWorklet measures input activity on the audio thread, without a background-tab polling timer.
+It measures 10 ms windows and ignores levels below 0.005 full scale.
+This is an audio-level estimate, not a speech recognizer or a sound-card loopback measurement.
+The output measurement skips leading PCM samples below the same threshold.
+
+`realtime.response.latency` logs these browser-clock durations in milliseconds:
+
+- `audioGapMs`: estimated input-audio end to the scheduled audible reply sample.
+- `turnDetectionMs`: estimated input-audio end to the Realtime speech-stop event.
+- `modelMs`: speech-stop event to first non-empty response text.
+- `speechMs`: first response text to the scheduled audible reply sample.
+- `afterDetectionMs`: speech-stop event to that reply sample.
+
+If input audio continues after turn detection, the full-gap estimate is omitted and `inputContinuedMs` is logged.
+If the audio meter cannot load, the conversation continues with timing after turn detection only.
+Transcript exports include timing values and the configured response settings.
+
+A manual Browse comparison replayed the same recorded question with each setting.
+A second version inserted a 1.2-second pause in the question.
+The first comparison used an analyser-based prototype of the meter, before it moved to the audio thread.
+
+| Reasoning | Candidate VAD | Normal question gap | Paused question gap | First text after detection, normal / paused |
+| --- | --- | --- | --- | --- |
+| low | medium | 4.09 s | 3.61 s | 1.43 s / 0.97 s |
+| minimal | medium | 5.62 s | 2.32 s | 0.54 s / 0.98 s |
+| minimal | high | 2.20 s | 2.10 s | 0.57 s / 0.64 s |
+
+No setting replied before either replayed question ended.
+These are six observations in one session with changing conversation history, not a controlled benchmark.
+Turn-detection variation was large enough to outweigh faster text in one minimal/medium observation.
+The high setting is selected for the AI interviewer use case, rather than a claim that every question will take two seconds.
+
+The final AudioWorklet version also completed a longer Stripe retry-safety question with live providers.
+Its estimated gap was 4.60 s: turn detection 2.55 s, first text 1.62 s, and speech 0.43 s.
+The response matched the recorded event-ledger, operation-receipt, and uncertain-outcome recovery facts.
+A follow-up asking for an exact incident-reduction percentage correctly stated that no before-and-after metric was recorded.
+The prompt now explicitly forbids inferring specific test runs from a feature's release.
+These checks do not establish general interview-answer accuracy.
+
+A stop check found that an already-closed OpenAI call can return HTTP 404 without a structured error code.
+The known-call hangup path now treats any HTTP 404 as already stopped.
+The repeated check stopped both peers and the speech socket without a page error.
+No unit tests were added.
+
+## Two-tab live check
+
+Open `http://localhost:4317/` and choose **Connect an interview tab**.
+Open `http://localhost:4317/interviewer` in a second Chrome tab as the audio source.
+Its title is **AI interviewer · Voice Interview Lab** so it is distinct in Chrome's tab picker.
+The source page uses OpenAI's interviewer voice and listens to its selected microphone.
+Both pages use the existing local server and server-side provider keys.
+Leave both pages stopped until audio routing is selected.
+
+BlackHole is the virtual audio cable for the return path on macOS.
+Set the app's **Send your voice to** output to BlackHole, and the interviewer's microphone to BlackHole.
+Keep interviewer playback on headphones.
+When connecting the app, select the interviewer tab in Chrome's share picker and enable tab audio.
+Chrome requires the user to choose the tab in its picker.
+
+On this Mac, the 24 November audio-device check did not find BlackHole.
+Homebrew's `blackhole-2ch` package reports that a restart is required after installation.
+When ready to install it, use `brew install --cask blackhole-2ch` and follow the installer prompts.
+Do not restart the Mac or its audio service during an active conversation without Justin's approval.
+See the [BlackHole installation and routing guide](https://github.com/ExistentialAudio/BlackHole).
+The full two-tab capture and virtual-microphone route is still unverified.
+
+To take over manually with the current app, press **Stop**, then select the real microphone on the interview page.
+A one-click takeover that routes the real microphone through BlackHole has been discussed but is not implemented.
+
 Use Browse with the `justin-okupter` profile for further browser tests.
 Use Justin's existing server on port 4317.
 The separate agent-browser session and extra test server were stopped.
@@ -283,7 +364,7 @@ The separate agent-browser session and extra test server were stopped.
 ## Open checks
 
 - Compare the revised speech delivery by listening to full answers.
-- Collect comparable timing samples when a proposed latency change is implemented.
+- Collect more timing samples across different questions and check for early replies during long pauses.
 - Check interruptions across both providers.
 - Check what the model remembers after interrupted speech.
 - Check microphone routing on the target website.

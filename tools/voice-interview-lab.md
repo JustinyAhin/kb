@@ -343,18 +343,45 @@ Leave both pages stopped until audio routing is selected.
 
 BlackHole is the virtual audio cable for the return path on macOS.
 Set the app's **Send your voice to** output to BlackHole, and the interviewer's microphone to BlackHole.
+Set **Hear Justin on** to the headphones to hear cloned replies locally too.
+Choose **Off** there to send replies only to the virtual microphone.
 Keep interviewer playback on headphones.
 When connecting the app, select the interviewer tab in Chrome's share picker and enable tab audio.
 Chrome requires the user to choose the tab in its picker.
 
-On this Mac, the 24 November audio-device check did not find BlackHole.
+The first 24 November audio-device check did not find BlackHole.
 Homebrew's `blackhole-2ch` package reports that a restart is required after installation.
 When ready to install it, use `brew install --cask blackhole-2ch` and follow the installer prompts.
 Do not restart the Mac or its audio service during an active conversation without Justin's approval.
 See the [BlackHole installation and routing guide](https://github.com/ExistentialAudio/BlackHole).
-The full two-tab capture and virtual-microphone route is still unverified.
+After installation and restart, macOS listed BlackHole 2ch as an input and output device.
+Justin ran the two-tab check manually.
+Server logs confirmed interview-tab speech input, candidate text, generated cloned PCM, and speech detection on the interviewer's BlackHole microphone.
+One observed estimated reply gap was 2.87 s, including 1.12 s turn detection, 1.27 s first text, and 0.49 s speech.
+An external interview website is still unverified.
+
+The original bridge route sent cloned audio only to BlackHole, so Justin could see reply text without hearing his clone locally.
+The page now offers a separate headphone output under **Hear Justin on**.
+It branches the existing PCM playback into a local media stream; it does not make another speech request.
+The virtual microphone route remains on the selected AudioContext sink.
+The monitor output list excludes the virtual microphone device and its device group.
+Stop, capture cancellation, and page close remove the monitor player and stop its stream.
+Local playback success and failure use the candidate's `audio.renderer.ready` and `audio.renderer.failed` events.
+The formatter, lint check, type check, and browser build passed.
+Audible monitoring is awaiting Justin's manual listening check; browser automation was stopped at his request.
+
+### Interview pages without a microphone selector
+
+Justin reported that the Begun voice-call page does not expose a microphone selector.
+The live call page was not opened or changed by the agent.
+For a site that uses Chrome's default microphone, open `chrome://settings/content/microphone` in that site's Chrome profile and select **BlackHole 2ch** before starting the call.
+Allow microphone access for the interview site when asked.
+Keep the app's **Send your voice to** set to BlackHole and **Hear Justin on** set to headphones.
+An active call may retain its existing input stream after Chrome's default changes.
+See [Chrome microphone settings](https://support.google.com/chrome/answer/2693767?hl=en).
 
 To take over manually with the current app, press **Stop**, then select the real microphone on the interview page.
+When a site has no microphone selector, changing Chrome's default does not guarantee an immediate handoff in an active call.
 A one-click takeover that routes the real microphone through BlackHole has been discussed but is not implemented.
 
 Use Browse with the `justin-okupter` profile for further browser tests.

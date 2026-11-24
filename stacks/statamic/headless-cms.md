@@ -70,8 +70,8 @@ Required details:
 
 ## 5. Choose who owns content
 
-When Git owns `content/`, do not mount a volume on `content/`.
-A volume hides the content in the new image. Use `php please stache:refresh`, not `stache:warm`.
+Git owns `content/` and `public/assets/` by default. Do not mount a volume on them.
+A volume hides the content and assets in the new image. Use `php please stache:refresh`, not `stache:warm`.
 Edit content in Git only. The next deploy deletes control panel edits on the server.
 For the other model, see [Choose a Statamic persistence model](../../operations/statamic-infisical-dokploy.md#choose-a-statamic-persistence-model).
 

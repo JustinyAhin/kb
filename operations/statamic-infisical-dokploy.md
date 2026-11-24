@@ -241,20 +241,36 @@ Do not make a CNAME to the server hostname.
 
 ## Choose a Statamic persistence model
 
-Named volumes for `storage` and an SQLite `database` do not preserve everything
-edited through the Control Panel. Decide explicitly how production changes are
-owned:
+Use git-owned content and assets by default.
+Git owns `content`, blueprints, and `public/assets` with their `.meta/*.yaml` files. Each image contains them.
 
-- Use Statamic's Git workflow when content, blueprints, users, and related flat
-  files should be committed and deployed from the repository.
-- Use persistent volumes plus tested backups when the VPS is the source of
-  truth for `content`, `users`, and `public/assets`.
+- Do not mount a volume on `content` or `public/assets`.
+- Change assets in the local CMS. Commit the files and their `.meta/*.yaml` files.
+- Do not upload or replace assets in the production control panel. Caddy does not see them, and the next deploy deletes them.
+- Keep named volumes for `storage` and `users`.
 
-Do not combine the models accidentally. Confirm which paths a replacement image
-overwrites before allowing production edits. When `public/assets` is a local
-volume, mount that same volume into both PHP and Caddy at the same path so files
-uploaded by Statamic are visible to the web server. Object storage is another
-option for deployments that should not share a local asset volume.
+Use a volume on `public/assets` only when the server is the source of truth on purpose.
+Then record that decision and back up the volume.
+Mount the same volume into PHP and Caddy at the same path.
+Object storage is another option.
+
+### Asset volume masking
+
+Docker fills an empty named volume from the image one time only.
+After that, the volume hides (masks) the assets of each new image.
+New assets from git then return `404` or old bytes in production. A rebuild or restart does not fix this.
+When only one service mounts the volume, PHP and Caddy serve different asset trees.
+
+### Move off an asset volume
+
+1. Record both image IDs, the complete Compose configuration, and the volume name.
+2. Compare the volume files with git. If the volume has files that git does not have, stop. Commit those files first.
+3. Remove the `public/assets` mounts from PHP and Caddy. Remove the volume declaration.
+4. Deploy. Confirm that no container mounts `/var/www/html/public/assets`.
+5. Request new assets directly. Confirm `200` and the committed bytes.
+6. Keep the old volume. Do not run `docker volume rm`, `docker volume prune`, or `docker compose down --volumes`.
+
+To roll back, restore the recorded images and Compose configuration. The old volume then serves the old, stale assets.
 
 ## Start a prerendered frontend build after each CMS deploy
 

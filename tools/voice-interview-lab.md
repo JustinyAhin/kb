@@ -12,7 +12,8 @@ Use TypeScript for the server and browser code.
 Use Bun for the runtime, package manager, and browser build.
 Use Hono for server routes and HTTP request logging.
 Use oxfmt for formatting and oxlint for lint checks.
-Use Eleven v4 (`eleven_v4`) for speech generation through the HTTP streaming endpoint.
+Use Eleven v4 Turbo (`eleven_v4_turbo`) through the Text to Dialogue WebSocket.
+Use 24 kHz, 16-bit, mono PCM audio for immediate chunk playback.
 Follow the shared [code conventions](../engineering/code-conventions.md) and [engineering workflow](../engineering/workflow.md).
 
 ## Voice architecture
@@ -89,6 +90,9 @@ The project README owns the minimum start commands.
 The application binds to the loopback interface.
 Keep API keys on the server.
 Set provider keys and `ELEVENLABS_VOICE_ID` through the project environment.
+Model names are constants in `src/shared/voice-config.ts`.
+OpenAI uses `gpt-realtime-2.1`; ElevenLabs uses `eleven_v4_turbo`.
+The old `OPENAI_REALTIME_MODEL` and `ELEVENLABS_TTS_MODEL` environment variables have no effect.
 Bun loads `.env` when the server starts.
 Agents must not open that secret file.
 Keys entered through the local setup form stay in server memory.
@@ -184,13 +188,13 @@ Simple factual answers do not require a hesitation.
 
 The speech request adds a conversational, unhurried delivery tag for v4.
 The delivery tag is separate from the displayed transcript.
-Voice stability is 0.4 and similarity is 0.75.
+The dialogue WebSocket uses voice stability 0.4.
+It does not send the HTTP endpoint's similarity setting.
 These settings are a starting point for listening checks.
-The speech endpoint accepted these settings and returned non-empty audio after the Hono migration.
 Eleven v4 does not support the speed parameter.
 See [voice settings](https://github.com/elevenlabs/skills/blob/main/text-to-speech/references/voice-settings.md) and [audio tags](https://elevenlabs.io/blog/elevenlabs-audio-tags-list).
 
-## Delay reduction proposals
+## Delay reduction
 
 One v4 reply started audio about seven seconds after turn detection.
 Another reply took about 3.6 seconds, based on server log timestamps.
@@ -201,7 +205,7 @@ Browser log delivery can add about 150 milliseconds to event receipt times.
 For the second observed reply, OpenAI produced its first text after about 0.84 seconds.
 ElevenLabs returned its first audio bytes about 0.80 seconds after the speech request.
 The complete first-sentence audio arrived after about 2.50 seconds.
-The browser currently waits for that complete audio file before decoding and scheduling it.
+The previous browser code waited for that complete audio file before decoding and scheduling it.
 
 | Priority | Proposed change | Expected effect and tradeoff |
 | --- | --- | --- |
@@ -210,13 +214,67 @@ The browser currently waits for that complete audio file before decoding and sch
 | 3 | Change semantic turn detection from low to medium eagerness. | Reduces waiting after a question. Check that short pauses do not cause interruptions. |
 | 4 | Use a compact factual summary with detailed evidence available when needed. | May reduce model work. Check factual coverage before removing source material. |
 
-Start with priorities 1 and 2 together.
-Keep the existing voice clone and compare normal speech samples before accepting the transport change.
+Justin approved priorities 1 through 3; all three are implemented.
+Priority 4 remains a proposal.
+The implementation keeps one provider connection open between replies.
+A short opening segment enters synthesis after at least eight complete words and 40 characters.
+The rest of the answer follows through the same connection.
+The final text fragment is flushed when OpenAI finishes.
+PCM chunks are scheduled as they arrive, without MP3 decoding or whole-file waiting.
+Semantic turn detection uses medium eagerness for both agents.
+Keep the existing voice clone and compare normal speech samples by listening.
 Measure the first meaningful answer, not a filler used to occupy the delay.
 Hono changes routing structure. It does not remove speech-generation or playback buffering delays.
 
 See [v4 Turbo streaming](https://elevenlabs.io/docs/eleven-api/guides/how-to/websockets/realtime-tdd).
-The listed delay changes remain proposals until implemented and checked.
+The server creates the speech WebSocket only for an active candidate call from the local app origin.
+The provider key stays in the server's first authentication frame.
+A keep-alive frame runs every 10 seconds.
+Stop closes both sockets and stops queued audio.
+The provider protocol has no cancel command, so an interruption replaces the socket if generation is still active.
+Turn IDs and connection generations discard stale audio from interrupted replies.
+Each turn is limited to 6,000 text characters; a speech session is limited to six minutes.
+The page stops a test after five minutes.
+
+`src/client` owns page controls, WebRTC, and PCM playback.
+`src/server` owns Hono routes, the runtime, session prompts, provider speech, and logs.
+`src/shared` owns message types and model constants.
+Static assets remain in `public`; Bun build scripts remain in `scripts`.
+
+Use `flush: true` without an empty input to finish a dialogue segment.
+The provider rejects an empty input with `input_text_empty`.
+A flush produces `is_final_audio_for_turn` while leaving the connection open.
+See the [dialogue WebSocket API](https://elevenlabs.io/docs/api-reference/text-to-dialogue/ttd-websocket).
+
+### Streaming check — 24 November 2026
+
+The type check, lint check, format command, and browser build passed after the source folders moved.
+A live Browse check on port 4317 completed two cloned replies through the same provider connection.
+First scheduled reply audio arrived 2.78 seconds and 1.86 seconds after candidate turn detection.
+OpenAI first text took 2.42 seconds and 1.46 seconds in those replies.
+The first provider audio chunk took 238 milliseconds after the first text segment in the first reply.
+These are individual observations, not a controlled model benchmark.
+
+The first reply scheduled 49 PCM chunks with non-zero sample values.
+Its audio started before OpenAI finished the response text.
+The interviewer received the audio and asked its next question.
+No page error appeared during the two replies.
+
+A controlled browser interruption injected a speech-start event during the next reply.
+The candidate response was cancelled, queued playback stopped, and the pending provider stream was discarded.
+The provider socket reopened in 452 milliseconds.
+A new OpenAI response then produced cloned speech through the replacement connection.
+No stale PCM chunk was scheduled between cancellation and the new reply's first audio.
+This checks the cancellation path with live providers; it does not prove microphone interruption timing on another website.
+
+Stop closed both WebRTC peers, the speech socket, and the audio context.
+It removed both hidden audio renderers, and the server returned to zero active calls.
+The rebuilt page loaded with the Turbo model and no visible error.
+
+The local page, interviewer page, and browser bundle returned HTTP 200.
+Requests for the secret file and server source returned HTTP 404.
+The speech endpoint rejected a foreign origin and a missing candidate session with HTTP 403.
+No unit tests were added.
 
 Use Browse with the `justin-okupter` profile for further browser tests.
 Use Justin's existing server on port 4317.

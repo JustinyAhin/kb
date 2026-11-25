@@ -71,6 +71,7 @@ diagnostics.
 ## Documentation
 
 - [Optional environment setup with Varlock and 1Password](environment-variables-with-varlock-and-1password.md)
+- [PostHog analytics setup](posthog.md)
 - https://svelte.dev/docs/svelte/llms.txt
 - https://svelte.dev/docs/kit/llms.txt
 - https://svelte.dev/docs/kit/remote-functions

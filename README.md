@@ -26,6 +26,7 @@ Short runbooks and notes for everyday engineering work.
 - [SvelteKit conventions](stacks/sveltekit/conventions.md)
 - [New SvelteKit project on Cloudflare Workers](stacks/sveltekit/new-project.md)
 - [SvelteKit environment variables with Varlock and 1Password](stacks/sveltekit/environment-variables-with-varlock-and-1password.md)
+- [PostHog in a SvelteKit app](stacks/sveltekit/posthog.md)
 - [Cloudflare Workers conventions](stacks/cloudflare-workers/conventions.md)
 - [Deploy a SvelteKit app to Cloudflare Workers](stacks/cloudflare-workers/deploy.md)
 - [D1 + Drizzle + Atlas](stacks/cloudflare-workers/d1-drizzle-atlas.md)
@@ -45,6 +46,7 @@ Short runbooks and notes for everyday engineering work.
 - [Dokploy volume backups](operations/dokploy-volume-backups.md)
 - [Dokploy private services](operations/dokploy-private-services.md)
 - [PostHog MCP](operations/posthog-mcp.md)
+- [PostHog setup in a SvelteKit app](stacks/sveltekit/posthog.md)
 - [Google Search Console](operations/search-console.md)
 - [Statamic with Infisical on Dokploy](operations/statamic-infisical-dokploy.md)
 

@@ -1,6 +1,7 @@
 # PostHog MCP
 
 Use this when investigating product behavior, traffic changes, alerts, and time-series trends through the PostHog MCP.
+To add PostHog to an app, use [PostHog in a SvelteKit app](../stacks/sveltekit/posthog.md).
 
 ## Confirm project context
 

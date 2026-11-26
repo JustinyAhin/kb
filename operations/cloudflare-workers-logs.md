@@ -15,14 +15,15 @@ Confirm the token is valid and has Workers Observability scopes. Never print tok
 List telemetry fields around the incident window:
 
 ```bash
-cf observability telemetry keys \
+cf o11y telemetry keys \
   --from <from-ms> \
   --to <to-ms> \
   --limit 200
 ```
 
-With `cf` v0.6.0, Workers Observability is a top-level `cf observability`
-command. Do not insert `workers` before `observability`.
+With `cf` v1.0.0-rc.3, use `cf o11y`. `cf observability` has only `tail` and
+`usage-limit`, so `cf observability telemetry ...` fails with "Unknown commands".
+(History: `cf` v0.6.0 used `cf observability telemetry ...`.)
 
 Common fields include:
 
@@ -36,6 +37,10 @@ Common fields include:
 - `$metadata.error`
 - `$metadata.requestId`
 - `$metadata.trigger`
+
+## Errors that the app catches
+
+Errors that the app catches and saves do not show in Workers logs. An example is a Cloudflare Workflow step error stored on a task row. Read them from the app's own task or activity record.
 
 ## Time windows
 
@@ -52,7 +57,7 @@ After every query, verify that `run.timeframe.from` and `run.timeframe.to` match
 Use an inline query for a single check. It saves nothing, so it needs no cleanup:
 
 ```bash
-cf observability telemetry query --body '{
+cf o11y telemetry query --body '{
   "queryId": "tmp-worker-debug",
   "view": "events",
   "limit": 100,
@@ -74,17 +79,17 @@ cf observability telemetry query --body '{
 
 Read `events.events[]`. Each event has `timestamp`, `$workers.event.request`, `$workers.event.response.status` and `$metadata`. The response can omit `sampleInterval`. In that case, the response does not show whether Cloudflare sampled the result.
 
-On 2026-11-17, with `cf` v0.6.0, `cf observability queries create` returned HTTP 400 with no reason, while this inline query worked. Use the inline query first.
+On 2026-11-17, with `cf` v0.6.0, saved-query creation (`cf o11y queries create`) returned HTTP 400 with no reason, while this inline query worked. Use the inline query first.
 
 ## Historical query workflow
 
 For repeated comparisons, create a temporary saved query, pass its `id` to
-`cf observability telemetry query`, and delete it afterward.
+`cf o11y telemetry query`, and delete it afterward.
 
 Create the query through `cf` so the CLI handles authentication:
 
 ```bash
-cf observability queries create --body '{
+cf o11y queries create --body '{
   "name": "tmp-worker-debug",
   "description": "temporary query for Worker debugging",
   "parameters": {
@@ -111,7 +116,7 @@ cf observability queries create --body '{
 Copy `id`, then query events or invocations:
 
 ```bash
-cf observability telemetry query \
+cf o11y telemetry query \
   --query-id <query-id> \
   --view events \
   --timeframe-from <from-ms> \
@@ -120,7 +125,7 @@ cf observability telemetry query \
 ```
 
 ```bash
-cf observability telemetry query \
+cf o11y telemetry query \
   --query-id <query-id> \
   --view invocations \
   --timeframe-from <from-ms> \
@@ -137,7 +142,7 @@ Keep the Worker filter even when the route appears unique, so a broad account qu
 Use `calculations` for equivalent-window comparisons:
 
 ```bash
-cf observability telemetry query \
+cf o11y telemetry query \
   --query-id <query-id> \
   --view calculations \
   --timeframe-from <from-ms> \
@@ -173,13 +178,13 @@ A broad POST count corroborates activity but is not automatically a feature-spec
 Always delete the temporary query:
 
 ```bash
-cf observability queries delete <query-id> --force
+cf o11y queries delete <query-id> --force
 ```
 
 Verify cleanup:
 
 ```bash
-cf observability queries list
+cf o11y queries list
 ```
 
 Use a recognizable `tmp-` prefix. For repeated investigations, wrap creation and execution in a script with deletion in a `finally` block so a failed query cannot leave saved queries behind.
